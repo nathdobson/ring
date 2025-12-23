@@ -47,6 +47,7 @@ mod aliasing_slices;
 mod array_flat_map;
 mod array_split_map;
 mod atomic;
+#[cfg(feature="alloc")]
 mod boxed;
 pub mod dynarray;
 pub mod partial_buffer;
@@ -79,9 +80,14 @@ pub mod prelude {
     // using Rust Nightly.
     pub(crate) use super::{
         atomic::AtomicPolyfills,
-        boxed::{BoxMaybeUninitSlicePolyfills, BoxSlicePolyfills},
+
+
         ptr::{ConstPointerPolyfills, PointerPolyfills},
         slice::{SliceOfArraysPolyfills, SlicePolyfills},
+    };
+    #[cfg(feature="alloc")]
+    pub(crate) use super::{
+        boxed::{BoxMaybeUninitSlicePolyfills, BoxSlicePolyfills},
     };
 }
 

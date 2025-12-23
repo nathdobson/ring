@@ -12,10 +12,15 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#[cfg(feature="alloc")]
+use super::bigint::{Elem, Mont, Uninit};
+
+#[cfg(feature="alloc")]
 use super::{
-    bigint::{Elem, Mont, Uninit},
+
     montgomery::R,
 };
+#[cfg(feature="alloc")]
 use core::num::NonZeroU64;
 
 /// Calculates base**exponent (mod m).
@@ -27,6 +32,7 @@ use core::num::NonZeroU64;
 /// weight of `exponent`.
 // TODO: The test coverage needs to be expanded, e.g. test with the largest
 // accepted exponent and with the most common values of 65537 and 3.
+#[cfg(feature="alloc")]
 pub(crate) fn elem_exp_vartime<M>(
     out: Uninit<M>,
     base: Elem<M, R>,
