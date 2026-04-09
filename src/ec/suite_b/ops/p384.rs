@@ -13,8 +13,9 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use super::{
+    PublicModulus,
     elem::{binary_op, binary_op_assign},
-    elem_sqr_mul, elem_sqr_mul_acc, PublicModulus, *,
+    elem_sqr_mul, elem_sqr_mul_acc, *,
 };
 
 pub(super) const NUM_LIMBS: usize = 384 / LIMB_BITS;
@@ -23,21 +24,35 @@ pub static COMMON_OPS: CommonOps = CommonOps {
     num_limbs: elem::NumLimbs::P384,
 
     q: PublicModulus {
-        p: limbs_from_hex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff"),
-        rr: PublicElem::from_hex("10000000200000000fffffffe000000000000000200000000fffffffe00000001"),
+        p: limbs_from_hex(
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff",
+        ),
+        rr: PublicElem::from_hex(
+            "10000000200000000fffffffe000000000000000200000000fffffffe00000001",
+        ),
     },
-    n: PublicElem::from_hex("ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973"),
+    n: PublicElem::from_hex(
+        "ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973",
+    ),
 
-    a: PublicElem::from_hex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffc0000000000000003fffffffc"),
-    b: PublicElem::from_hex("cd08114b604fbff9b62b21f41f022094e3374bee94938ae277f2209b1920022ef729add87a4c32ec081188719d412dcc"),
+    a: PublicElem::from_hex(
+        "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffc0000000000000003fffffffc",
+    ),
+    b: PublicElem::from_hex(
+        "cd08114b604fbff9b62b21f41f022094e3374bee94938ae277f2209b1920022ef729add87a4c32ec081188719d412dcc",
+    ),
 
     elem_mul_mont: p384_elem_mul_mont,
     elem_sqr_mont: p384_elem_sqr_mont,
 };
 
 pub(super) static GENERATOR: (PublicElem<R>, PublicElem<R>) = (
-    PublicElem::from_hex("4d3aadc2299e1513812ff723614ede2b6454868459a30eff879c3afc541b4d6e20e378e2a0d6ce383dd0756649c0b528"),
-    PublicElem::from_hex("2b78abc25a15c5e9dd8002263969a840c6c3521968f4ffd98bade7562e83b050a1bfa8bf7bb4a9ac23043dad4b03a4fe"),
+    PublicElem::from_hex(
+        "4d3aadc2299e1513812ff723614ede2b6454868459a30eff879c3afc541b4d6e20e378e2a0d6ce383dd0756649c0b528",
+    ),
+    PublicElem::from_hex(
+        "2b78abc25a15c5e9dd8002263969a840c6c3521968f4ffd98bade7562e83b050a1bfa8bf7bb4a9ac23043dad4b03a4fe",
+    ),
 );
 
 pub static PRIVATE_KEY_OPS: PrivateKeyOps = PrivateKeyOps {
@@ -136,7 +151,9 @@ pub static PUBLIC_SCALAR_OPS: PublicScalarOps = PublicScalarOps {
 pub static PRIVATE_SCALAR_OPS: PrivateScalarOps = PrivateScalarOps {
     scalar_ops: &SCALAR_OPS,
 
-    oneRR_mod_n: PublicScalar::from_hex("c84ee012b39bf213fb05b7a28266895d40d49174aab1cc5bc3e483afcb82947ff3d81e5df1aa4192d319b2419b409a9"),
+    oneRR_mod_n: PublicScalar::from_hex(
+        "c84ee012b39bf213fb05b7a28266895d40d49174aab1cc5bc3e483afcb82947ff3d81e5df1aa4192d319b2419b409a9",
+    ),
     scalar_inv_to_mont: p384_scalar_inv_to_mont,
 };
 
@@ -190,37 +207,41 @@ fn p384_scalar_inv_to_mont(a: Scalar<R>, cpu: cpu::Features) -> Scalar<R> {
 
     // Indexes into `d`.
     const B_1: usize = 0;
-    const B_11: usize = 1;
-    const B_101: usize = 2;
-    const B_111: usize = 3;
-    const B_1001: usize = 4;
-    const B_1011: usize = 5;
-    const B_1101: usize = 6;
-    const B_1111: usize = 7;
-    const DIGIT_COUNT: usize = 8;
+    const B_101: usize = 1;
+    const B_111: usize = 2;
+    const B_1001: usize = 3;
+    const B_1011: usize = 4;
+    const B_1101: usize = 5;
+    const B_10111: usize = 6;
+    const B_11001: usize = 7;
+    const B_11011: usize = 8;
+    const B_110001: usize = 9;
+    const DIGIT_COUNT: usize = 10;
 
+    // Calculate the window values.
     let mut d = [Scalar::zero(); DIGIT_COUNT];
     d[B_1] = a;
-    let b_10 = sqr(&d[B_1], cpu);
-    for i in B_11..DIGIT_COUNT {
-        d[i] = mul(&d[i - 1], &b_10, cpu);
-    }
 
-    let ff = sqr_mul(&d[B_1111], 0 + 4, &d[B_1111], cpu);
-    let ffff = sqr_mul(&ff, 0 + 8, &ff, cpu);
-    let ffffffff = sqr_mul(&ffff, 0 + 16, &ffff, cpu);
-
-    let ffffffffffffffff = sqr_mul(&ffffffff, 0 + 32, &ffffffff, cpu);
-
-    let ffffffffffffffffffffffff = sqr_mul(&ffffffffffffffff, 0 + 32, &ffffffff, cpu);
+    let b_10 = &sqr(&d[B_1], cpu); // 2
+    let b_100 = &sqr(b_10, cpu); // 4
+    d[B_101] = mul(&d[B_1], b_100, cpu); // 5
+    d[B_111] = mul(&d[B_101], b_10, cpu); // 7
+    d[B_1001] = mul(&d[B_111], b_10, cpu); // 9
+    d[B_1011] = mul(&d[B_1001], b_10, cpu); // 11
+    d[B_1101] = mul(&d[B_1011], b_10, cpu); // 13
+    let b_10110 = &sqr(&d[B_1011], cpu); // 22
+    d[B_10111] = mul(b_10110, &d[B_1], cpu); // 23 = 22 + 1
+    d[B_11001] = mul(&d[B_10111], b_10, cpu); // 25 = 23 + 2
+    d[B_11011] = mul(&d[B_11001], b_10, cpu); // 27 = 25 + 2
+    d[B_110001] = mul(&d[B_11011], b_10110, cpu); // 49
 
     // ffffffffffffffffffffffffffffffffffffffffffffffff
-    let mut acc = sqr_mul(
-        &ffffffffffffffffffffffff,
-        0 + 96,
-        &ffffffffffffffffffffffff,
-        cpu,
-    );
+    let x6 = &sqr_mul(&d[B_11001], 1, &d[B_1101], cpu); // 63
+    let x12 = &sqr_mul(x6, 6, x6, cpu);
+    let x24 = &sqr_mul(x12, 12, x12, cpu);
+    let x48 = &sqr_mul(x24, 24, x24, cpu);
+    let x96 = &sqr_mul(x48, 48, x48, cpu);
+    let mut acc = sqr_mul(x96, 96, x96, cpu);
 
     // The rest of the exponent, in binary, is:
     //
@@ -229,45 +250,39 @@ fn p384_scalar_inv_to_mont(a: Scalar<R>, cpu: cpu::Features) -> Scalar<R> {
     //    1110110011101100000110010110101011001100110001010010100101110001
 
     #[allow(clippy::cast_possible_truncation)]
-    static REMAINING_WINDOWS: [(u8, u8); 39] = [
-        (2, B_11 as u8),
-        (3 + 3, B_111 as u8),
-        (1 + 2, B_11 as u8),
-        (3 + 2, B_11 as u8),
-        (1 + 4, B_1001 as u8),
-        (4, B_1011 as u8),
-        (6 + 4, B_1111 as u8),
-        (3, B_101 as u8),
-        (4 + 1, B_1 as u8),
-        (4, B_1011 as u8),
-        (4, B_1001 as u8),
-        (1 + 4, B_1101 as u8),
+    static REMAINING_WINDOWS: [(u8, u8); 33] = [
+        (0 + 6, B_110001 as u8),
+        (0 + 5, B_11011 as u8),
+        (3 + 4, B_1101 as u8),
+        (2 + 5, B_11011 as u8),
+        (6 + 3, B_111 as u8),
         (4, B_1101 as u8),
-        (4, B_1111 as u8),
+        (4 + 5, B_11011 as u8),
+        (4, B_1001 as u8),
+        (1 + 5, B_11011 as u8),
+        (4, B_1011 as u8),
+        (3, B_111 as u8),
         (1 + 4, B_1011 as u8),
         (6 + 4, B_1101 as u8),
-        (5 + 4, B_1101 as u8),
-        (4, B_1011 as u8),
+        (5 + 5, B_11011 as u8),
+        (1 + 5, B_11001 as u8),
         (2 + 4, B_1001 as u8),
-        (2 + 1, B_1 as u8),
         (3 + 4, B_1011 as u8),
         (4 + 3, B_101 as u8),
         (2 + 3, B_111 as u8),
-        (1 + 4, B_1111 as u8),
+        (1 + 3, B_111 as u8),
+        (0 + 3, B_101 as u8),
+        (1 + 3, B_111 as u8),
+        (1 + 5, B_11001 as u8),
+        (0 + 5, B_11011 as u8),
+        (5 + 5, B_11001 as u8),
+        (1 + 4, B_1101 as u8),
         (1 + 4, B_1011 as u8),
-        (4, B_1011 as u8),
-        (2 + 3, B_111 as u8),
-        (1 + 2, B_11 as u8),
-        (5 + 2, B_11 as u8),
-        (2 + 4, B_1011 as u8),
-        (1 + 3, B_101 as u8),
-        (1 + 2, B_11 as u8),
-        (2 + 2, B_11 as u8),
-        (2 + 2, B_11 as u8),
+        (2 + 5, B_11001 as u8),
+        (0 + 1, B_1 as u8),
         (3 + 3, B_101 as u8),
         (2 + 3, B_101 as u8),
-        (2 + 3, B_101 as u8),
-        (2, B_11 as u8),
+        (2 + 5, B_10111 as u8),
         (3 + 1, B_1 as u8),
     ];
 
@@ -294,25 +309,25 @@ unsafe extern "C" fn p384_elem_sqr_mont(
 }
 
 prefixed_extern! {
-    fn p384_elem_mul_mont(
+    unsafe fn p384_elem_mul_mont(
         r: *mut Limb,   // [COMMON_OPS.num_limbs]
         a: *const Limb, // [COMMON_OPS.num_limbs]
         b: *const Limb, // [COMMON_OPS.num_limbs]
     );
 
-    fn p384_point_add(
+    unsafe fn p384_point_add(
         r: *mut Limb,   // [3][COMMON_OPS.num_limbs]
         a: *const Limb, // [3][COMMON_OPS.num_limbs]
         b: *const Limb, // [3][COMMON_OPS.num_limbs]
     );
-    fn p384_point_mul(
+    unsafe fn p384_point_mul(
         r: *mut Limb,          // [3][COMMON_OPS.num_limbs]
         p_scalar: *const Limb, // [COMMON_OPS.num_limbs]
         p_x: *const Limb,      // [COMMON_OPS.num_limbs]
         p_y: *const Limb,      // [COMMON_OPS.num_limbs]
     );
 
-    fn p384_scalar_mul_mont(
+    unsafe fn p384_scalar_mul_mont(
         r: *mut Limb,   // [COMMON_OPS.num_limbs]
         a: *const Limb, // [COMMON_OPS.num_limbs]
         b: *const Limb, // [COMMON_OPS.num_limbs]

@@ -15,14 +15,14 @@
 #![cfg(target_arch = "x86_64")]
 
 use super::{
-    ffi::{self, KeyValue, BLOCK_LEN},
     UpdateBlock, Xi,
+    ffi::{self, BLOCK_LEN, KeyValue},
 };
 use crate::{
     c,
     cpu::intel::{Avx2, VAesClmul},
 };
-use core::{mem::MaybeUninit, slice};
+use core::{mem::MaybeUninit, num::NonZero, slice};
 
 #[derive(Clone)]
 #[repr(transparent)]
@@ -31,7 +31,7 @@ pub struct Key([ffi::U128; 12]);
 impl Key {
     pub(in super::super) fn new(value: KeyValue, _cpu: (Avx2, VAesClmul)) -> Self {
         prefixed_extern! {
-            fn gcm_init_vpclmulqdq_avx2(HTable: *mut Key, h: &KeyValue);
+            unsafe fn gcm_init_vpclmulqdq_avx2(HTable: *mut Key, h: &KeyValue);
         }
         let mut uninit = MaybeUninit::<Key>::uninit();
         unsafe {
@@ -44,11 +44,11 @@ impl Key {
 impl UpdateBlock for Key {
     fn update_block(&self, xi: &mut Xi, a: [u8; BLOCK_LEN]) {
         prefixed_extern! {
-            fn gcm_ghash_vpclmulqdq_avx2_16(
+            unsafe fn gcm_ghash_vpclmulqdq_avx2_16(
                 xi: &mut Xi,
                 Htable: &Key,
                 inp: *const u8,
-                len: c::NonZero_size_t,
+                len: NonZero<c::size_t>,
             );
         }
         let input = slice::from_ref(&a);

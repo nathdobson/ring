@@ -17,9 +17,10 @@ use crate::polyfill::prelude::*;
 
 use super::{
     super::{
-        super::montgomery::{limbs_square_mont, Unencoded, RR, RRR},
+        super::montgomery::{RR, RRR, Unencoded, limbs_square_mont},
+        Elem, N0, One, OversizedUninit, PublicModulus, Uninit,
         modulus::value::Value,
-        unwrap_impossible_limb_slice_error, Elem, One, OversizedUninit, PublicModulus, Uninit, N0,
+        unwrap_impossible_limb_slice_error,
     },
     ValidatedInput,
 };
@@ -28,11 +29,11 @@ use crate::{
     bits::BitLength,
     cpu,
     error::{self, LenMismatchError},
-    limb::{self, Limb, LIMB_BITS},
+    limb::{self, LIMB_BITS, Limb},
     polyfill::{self, LeadingZerosStripped},
 };
 use alloc::boxed::Box;
-use core::{marker::PhantomData, num::NonZeroUsize};
+use core::{marker::PhantomData, num::NonZero};
 
 /// The modulus *m* for a ring ℤ/mℤ, along with the precomputed values needed
 /// for efficient Montgomery multiplication modulo *m*. The value must be odd
@@ -147,7 +148,7 @@ impl N0 {
         // n_mod_r = n % r. As explained in the documentation for `n0`, this is
         // done by taking the lowest `N0::LIMBS_USED` limbs of `n`.
         prefixed_extern! {
-            fn bn_neg_inv_mod_r_u64(n: u64) -> u64;
+            unsafe fn bn_neg_inv_mod_r_u64(n: u64) -> u64;
         }
 
         // XXX: u64::from isn't guaranteed to be constant time.
@@ -231,7 +232,9 @@ impl<M> BoxedIntoMont<M, RR> {
 }
 
 impl<'a, M: PublicModulus, E> IntoMont<'a, M, E> {
-    pub fn be_bytes(&self) -> LeadingZerosStripped<impl ExactSizeIterator<Item = u8> + Clone + 'a> {
+    pub fn be_bytes(
+        &self,
+    ) -> LeadingZerosStripped<impl ExactSizeIterator<Item = u8> + Clone + 'a + use<'a, M, E>> {
         let (value, _) = self.parts();
         LeadingZerosStripped::new(limb::unstripped_be_bytes(value))
     }
@@ -272,8 +275,8 @@ impl<M> Mont<'_, M> {
         self.n0
     }
 
-    pub fn num_limbs(&self) -> NonZeroUsize {
-        NonZeroUsize::new(self.limbs().len()).unwrap_or_else(|| unreachable!())
+    pub fn num_limbs(&self) -> NonZero<usize> {
+        NonZero::new(self.limbs().len()).unwrap_or_else(|| unreachable!())
     }
 
     pub fn len_bits(&self) -> BitLength {

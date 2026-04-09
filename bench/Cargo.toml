@@ -1,5 +1,5 @@
 [package]
-edition = "2021"
+edition = "2024"
 name = "ring-bench"
 publish = false
 version = "0.1.0"
@@ -8,7 +8,7 @@ version = "0.1.0"
 ring = { path = "../" }
 
 [dev-dependencies]
-criterion = { version = "0.5.1", default-features = false }
+criterion = { version = "0.8.2", default-features = false }
 
 [[bench]]
 name = "aead"

@@ -16,10 +16,10 @@
 use crate::polyfill::prelude::*;
 
 use super::{
-    super::{montgomery::*, MAX_LIMBS},
+    super::{MAX_LIMBS, montgomery::*},
+    IntoMont, Mont, Uninit,
     boxed_limbs::BoxedLimbs,
-    unwrap_impossible_len_mismatch_error, unwrap_impossible_limb_slice_error, IntoMont, Mont,
-    Uninit,
+    unwrap_impossible_len_mismatch_error, unwrap_impossible_limb_slice_error,
 };
 use crate::{
     bits::BitLength,
@@ -27,11 +27,11 @@ use crate::{
     error::{self, LenMismatchError},
     limb::{self, Limb},
     polyfill::{
-        slice::{AliasingSlices, InOut},
         StartMutPtr,
+        slice::{AliasingSlices, InOut},
     },
 };
-use core::{marker::PhantomData, num::NonZeroUsize};
+use core::{marker::PhantomData, num::NonZero};
 
 /// Elements of ℤ/mℤ for some modulus *m*.
 //
@@ -254,15 +254,15 @@ impl<M, E> Elem<M, E> {
     pub fn sub(mut self, b: &Elem<M, E>, m: &Mont<M>) -> Elem<M, E> {
         prefixed_extern! {
             // `r` and `a` may alias.
-            fn LIMBS_sub_mod(
+            unsafe fn LIMBS_sub_mod(
                 r: *mut Limb,
                 a: *const Limb,
                 b: *const Limb,
                 m: *const Limb,
-                num_limbs: c::NonZero_size_t,
+                num_limbs: NonZero<c::size_t>,
             );
         }
-        let num_limbs = NonZeroUsize::new(m.limbs().len()).unwrap();
+        let num_limbs = NonZero::new(m.limbs().len()).unwrap();
         let _: &[Limb] = (InOut(self.limbs.as_mut()), b.limbs.as_ref())
             .with_non_dangling_non_null_pointers(num_limbs, |mut r, [a, b]| {
                 let m = m.limbs().as_ptr(); // Also non-dangling because num_limbs is non-zero.

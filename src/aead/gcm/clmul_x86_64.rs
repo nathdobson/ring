@@ -15,11 +15,11 @@
 #![cfg(target_arch = "x86_64")]
 
 use super::{
-    ffi::{self, KeyValue, BLOCK_LEN},
     UpdateBlock, UpdateBlocks, Xi,
+    ffi::{self, BLOCK_LEN, KeyValue},
 };
-use crate::cpu;
-use core::{mem::MaybeUninit, slice};
+use crate::{c, cpu};
+use core::{mem::MaybeUninit, num::NonZero, slice};
 
 #[derive(Clone)]
 #[repr(transparent)]
@@ -31,7 +31,7 @@ impl Key {
         _cpu: (cpu::intel::ClMul, cpu::intel::Ssse3),
     ) -> Self {
         prefixed_extern! {
-            fn gcm_init_clmul(HTable: *mut Key, h: &KeyValue);
+            unsafe fn gcm_init_clmul(HTable: *mut Key, h: &KeyValue);
         }
         let mut uninit = MaybeUninit::<Key>::uninit();
         unsafe {
@@ -50,11 +50,11 @@ impl UpdateBlock for Key {
 impl UpdateBlocks for Key {
     fn update_blocks(&self, xi: &mut Xi, input: &[[u8; BLOCK_LEN]]) {
         prefixed_extern! {
-            fn gcm_ghash_clmul(
+            unsafe fn gcm_ghash_clmul(
                 xi: &mut Xi,
                 Htable: &Key,
                 inp: *const u8,
-                len: crate::c::NonZero_size_t,
+                len: NonZero<c::size_t>,
             );
         }
         ffi::with_non_dangling_ptr(input, |input, len| unsafe {

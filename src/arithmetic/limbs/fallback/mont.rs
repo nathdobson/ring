@@ -16,9 +16,9 @@
 use crate::polyfill::prelude::*;
 
 use super::super::super::{
-    ffi::bn_mul_mont_ffi,
-    montgomery::{limbs_from_mont_in_place, N0},
     LimbSliceError, MAX_LIMBS, MIN_LIMBS,
+    ffi::bn_mul_mont_ffi,
+    montgomery::{N0, limbs_from_mont_in_place},
 };
 use crate::{
     c,
@@ -27,7 +27,7 @@ use crate::{
     polyfill::slice::{AliasedUninit, AliasingSlices},
 };
 use cfg_if::cfg_if;
-use core::hint::unreachable_unchecked;
+use core::{hint::unreachable_unchecked, num::NonZero};
 
 #[allow(dead_code)]
 #[inline]
@@ -60,7 +60,7 @@ cfg_if! {
                 b: *const Limb,
                 n: *const Limb,
                 n0: &N0,
-                num_limbs: c::NonZero_size_t,
+                num_limbs: NonZero<c::size_t>,
             ) {
                 unsafe { bn_mul_mont_fallback_impl(r, a, b, n, n0, num_limbs) }
             }
@@ -77,7 +77,7 @@ unsafe extern "C" fn bn_mul_mont_fallback_impl(
     b: *const Limb,
     n: *const Limb,
     n0: &N0,
-    num_limbs: c::NonZero_size_t,
+    num_limbs: NonZero<c::size_t>,
 ) {
     let num_limbs = num_limbs.get();
 
@@ -122,7 +122,7 @@ fn limbs_mul(r: &mut [Limb], a: &[Limb], b: &[Limb]) {
 prefixed_extern! {
     // `r` must not alias `a`
     #[must_use]
-    fn limbs_mul_add_limb(r: *mut Limb, a: *const Limb, b: Limb, num_limbs: c::size_t) -> Limb;
+    unsafe fn limbs_mul_add_limb(r: *mut Limb, a: *const Limb, b: Limb, num_limbs: c::size_t) -> Limb;
 }
 
 #[cfg(test)]

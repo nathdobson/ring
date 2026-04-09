@@ -734,8 +734,7 @@ static void x25519_ge_scalarmult_small_precomp(
   }
 }
 
-void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32], int use_adx) {
-  (void)use_adx;
+void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
   x25519_ge_scalarmult_small_precomp(h, a, k25519SmallPrecomp);
 }
 
@@ -773,26 +772,22 @@ static void table_select(ge_precomp *t, const int pos, const signed char b) {
   cmov(t, &minust, bnegative>>7);
 }
 
+#if defined(BORINGSSL_FE25519_ADX)
+void x25519_ge_scalarmult_base_adx_from_bytes(ge_p3 *h, uint8_t t[4][32]) {
+  fiat_25519_from_bytes(h->X.v, t[0]);
+  fiat_25519_from_bytes(h->Y.v, t[1]);
+  fiat_25519_from_bytes(h->Z.v, t[2]);
+  fiat_25519_from_bytes(h->T.v, t[3]);
+}
+#endif
+
 // h = a * B
 // where a = a[0]+256*a[1]+...+256^31 a[31]
 // B is the Ed25519 base point (x,4/5) with x positive.
 //
 // Preconditions:
 //   a[31] <= 127
-void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32], int use_adx) {
-#if defined(BORINGSSL_FE25519_ADX)
-  if (use_adx) {
-    uint8_t t[4][32];
-    x25519_ge_scalarmult_base_adx(t, a);
-    fiat_25519_from_bytes(h->X.v, t[0]);
-    fiat_25519_from_bytes(h->Y.v, t[1]);
-    fiat_25519_from_bytes(h->Z.v, t[2]);
-    fiat_25519_from_bytes(h->T.v, t[3]);
-    return;
-  }
-#else
-  (void)use_adx;
-#endif
+void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
   signed char e[64];
   signed char carry;
   ge_p1p1 r;
@@ -1866,37 +1861,29 @@ void x25519_scalar_mult_generic_masked(uint8_t out[32],
   fe_tobytes(out, &x2);
 }
 
-void x25519_public_from_private_generic_masked(uint8_t out_public_value[32],
-                                               const uint8_t private_key_masked[32],
-                                               int use_adx) {
-  uint8_t e[32];
-  OPENSSL_memcpy(e, private_key_masked, 32);
-
-  ge_p3 A;
-  x25519_ge_scalarmult_base(&A, e, use_adx);
-
+void x25519_u_coordinate(uint8_t out_public_value[32], const ge_p3 *A) {
   // We only need the u-coordinate of the curve25519 point. The map is
   // u=(y+1)/(1-y). Since y=Y/Z, this gives u=(Z+Y)/(Z-Y).
   fe_loose zplusy, zminusy;
   fe zminusy_inv;
-  fe_add(&zplusy, &A.Z, &A.Y);
-  fe_sub(&zminusy, &A.Z, &A.Y);
+  fe_add(&zplusy, &A->Z, &A->Y);
+  fe_sub(&zminusy, &A->Z, &A->Y);
   fe_loose_invert(&zminusy_inv, &zminusy);
   fe_mul_tlt(&zminusy_inv, &zplusy, &zminusy_inv);
   fe_tobytes(out_public_value, &zminusy_inv);
   CONSTTIME_DECLASSIFY(out_public_value, 32);
 }
 
-void x25519_fe_invert(fe *out, const fe *z) {
-  fe_invert(out, z);
+void x25519_fe_invert(fe *z) {
+  fe_invert(z, z);
 }
 
 uint8_t x25519_fe_isnegative(const fe *f) {
   return (uint8_t)fe_isnegative(f);
 }
 
-void x25519_fe_mul_ttt(fe *h, const fe *f, const fe *g) {
-  fe_mul_ttt(h, f, g);
+void x25519_fe_mul_assign_tt(fe *h, const fe *f) {
+  fe_mul_ttt(h, h, f);
 }
 
 void x25519_fe_neg(fe *f) {

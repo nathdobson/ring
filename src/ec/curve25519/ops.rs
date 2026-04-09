@@ -15,15 +15,15 @@
 //! Elliptic curve operations on the birationally equivalent curves Curve25519
 //! and Edwards25519.
 
-pub use super::scalar::{MaskedScalar, Scalar, SCALAR_LEN};
+pub use super::scalar::{MaskedScalar, SCALAR_LEN, Scalar};
 use crate::{
-    bssl, cpu, error,
-    limb::{Limb, LIMB_BITS},
+    cpu,
+    limb::{LIMB_BITS, Limb},
 };
-use core::{ffi::c_int, marker::PhantomData};
+use core::{marker::PhantomData, mem::MaybeUninit};
 
-// Elem<T>` is `fe` in curve25519/internal.h.
-// Elem<L> is `fe_loose` in curve25519/internal.h.
+// Elem<Tight>` is `fe` in curve25519/internal.h.
+// Elem<Loose> is `fe_loose` in curve25519/internal.h.
 // Keep this in sync with curve25519/internal.h.
 #[repr(C)]
 pub struct Elem<E: Encoding> {
@@ -32,21 +32,12 @@ pub struct Elem<E: Encoding> {
 }
 
 pub trait Encoding {}
-pub struct T;
-impl Encoding for T {}
+pub struct Tight;
+impl Encoding for Tight {}
 
 const ELEM_LIMBS: usize = 5 * 64 / LIMB_BITS;
 
-impl<E: Encoding> Elem<E> {
-    fn zero() -> Self {
-        Self {
-            limbs: Default::default(),
-            encoding: PhantomData,
-        }
-    }
-}
-
-impl Elem<T> {
+impl Elem<Tight> {
     fn negate(&mut self) {
         unsafe {
             x25519_fe_neg(self);
@@ -54,54 +45,49 @@ impl Elem<T> {
     }
 }
 
-// An encoding of a curve point. If on Curve25519, it should be encoded as
-// described in Section 5 of [RFC 7748]. If on Edwards25519, it should be
-// encoded as described in section 5.1.2 of [RFC 8032].
-//
-// [RFC 7748] https://tools.ietf.org/html/rfc7748#section-5
 // [RFC 8032] https://tools.ietf.org/html/rfc8032#section-5.1.2
-pub type EncodedPoint = [u8; ELEM_LEN];
+// This is *NOT* the type to use for X25519 output.
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct CompressedPoint([u8; ELEM_LEN]);
+
+impl CompressedPoint {
+    pub fn as_ref(&self) -> &[u8; ELEM_LEN] {
+        &self.0
+    }
+}
+
 pub const ELEM_LEN: usize = 32;
 
 // Keep this in sync with `ge_p3` in curve25519/internal.h.
 #[repr(C)]
-pub struct ExtPoint {
-    x: Elem<T>,
-    y: Elem<T>,
-    z: Elem<T>,
-    t: Elem<T>,
+pub struct P3 {
+    x: Elem<Tight>,
+    y: Elem<Tight>,
+    z: Elem<Tight>,
+    t: Elem<Tight>,
 }
 
-impl ExtPoint {
+impl P3 {
     // Returns the result of multiplying the base point by the scalar in constant time.
     pub(super) fn from_scalarmult_base(scalar: &Scalar, cpu: cpu::Features) -> Self {
-        let mut r = Self {
-            x: Elem::zero(),
-            y: Elem::zero(),
-            z: Elem::zero(),
-            t: Elem::zero(),
-        };
+        #[cfg(all(target_arch = "x86_64", not(windows), not(target_os = "cygwin")))]
+        if let Some(cpu) = super::adx::get_features(cpu) {
+            return super::adx::scalarmult_base(scalar, cpu);
+        }
+
+        let _ = cpu;
         prefixed_extern! {
-            fn x25519_ge_scalarmult_base(h: &mut ExtPoint, a: &Scalar, has_fe25519_adx: c_int);
+            unsafe fn x25519_ge_scalarmult_base(h: &mut MaybeUninit<P3>, a: &Scalar);
         }
+        let mut r = MaybeUninit::uninit();
         unsafe {
-            x25519_ge_scalarmult_base(&mut r, scalar, has_fe25519_adx(cpu).into());
+            x25519_ge_scalarmult_base(&mut r, scalar);
+            r.assume_init()
         }
-        r
     }
 
-    pub fn from_encoded_point_vartime(encoded: &EncodedPoint) -> Result<Self, error::Unspecified> {
-        let mut point = Self {
-            x: Elem::zero(),
-            y: Elem::zero(),
-            z: Elem::zero(),
-            t: Elem::zero(),
-        };
-
-        Result::from(unsafe { x25519_ge_frombytes_vartime(&mut point, encoded) }).map(|()| point)
-    }
-
-    pub(super) fn into_encoded_point(self, cpu_features: cpu::Features) -> EncodedPoint {
+    pub(super) fn into_compressed_encoding(self, cpu_features: cpu::Features) -> CompressedPoint {
         encode_point(self.x, self.y, self.z, cpu_features)
     }
 
@@ -113,68 +99,58 @@ impl ExtPoint {
 
 // Keep this in sync with `ge_p2` in curve25519/internal.h.
 #[repr(C)]
-pub struct Point {
-    x: Elem<T>,
-    y: Elem<T>,
-    z: Elem<T>,
+pub struct P2 {
+    x: Elem<Tight>,
+    y: Elem<Tight>,
+    z: Elem<Tight>,
 }
 
-impl Point {
-    pub fn new_at_infinity() -> Self {
-        Self {
-            x: Elem::zero(),
-            y: Elem::zero(),
-            z: Elem::zero(),
-        }
-    }
-
-    pub(super) fn into_encoded_point(self, cpu_features: cpu::Features) -> EncodedPoint {
+impl P2 {
+    pub(super) fn into_compressed_encoding(self, cpu_features: cpu::Features) -> CompressedPoint {
         encode_point(self.x, self.y, self.z, cpu_features)
     }
 }
 
-fn encode_point(x: Elem<T>, y: Elem<T>, z: Elem<T>, _cpu_features: cpu::Features) -> EncodedPoint {
-    let mut bytes = [0; ELEM_LEN];
+fn encode_point(
+    mut x: Elem<Tight>,
+    mut y: Elem<Tight>,
+    mut z: Elem<Tight>,
+    _cpu_features: cpu::Features,
+) -> CompressedPoint {
+    unsafe {
+        x25519_fe_invert(&mut z);
+    }
+    let recip = &mut z;
 
-    let sign_bit: u8 = unsafe {
-        let mut recip = Elem::zero();
-        x25519_fe_invert(&mut recip, &z);
+    unsafe {
+        x25519_fe_mul_assign_tt(&mut x, recip);
+    }
+    let x_over_z = &x;
 
-        let mut x_over_z = Elem::zero();
-        x25519_fe_mul_ttt(&mut x_over_z, &x, &recip);
+    unsafe {
+        x25519_fe_mul_assign_tt(&mut y, recip);
+    }
+    let y_over_z = &y;
 
-        let mut y_over_z = Elem::zero();
-        x25519_fe_mul_ttt(&mut y_over_z, &y, &recip);
-        x25519_fe_tobytes(&mut bytes, &y_over_z);
+    let mut r = CompressedPoint([0u8; ELEM_LEN]);
+    let bytes = &mut r.0;
+    unsafe {
+        x25519_fe_tobytes(bytes, y_over_z);
+    }
 
-        x25519_fe_isnegative(&x_over_z)
-    };
+    let sign_bit: u8 = unsafe { x25519_fe_isnegative(x_over_z) };
 
     // The preceding computations must execute in constant time, but this
     // doesn't need to.
     bytes[ELEM_LEN - 1] ^= sign_bit << 7;
 
-    bytes
-}
-
-#[inline(always)]
-pub(super) fn has_fe25519_adx(cpu: cpu::Features) -> bool {
-    cfg_if::cfg_if! {
-        if #[cfg(all(target_arch = "x86_64", not(target_os = "windows")))] {
-            use cpu::{intel::{Adx, Bmi1, Bmi2}, GetFeature as _};
-            matches!(cpu.get_feature(), Some((Adx { .. }, Bmi1 { .. }, Bmi2 { .. })))
-        } else {
-            let _ = cpu;
-            false
-        }
-    }
+    r
 }
 
 prefixed_extern! {
-    fn x25519_fe_invert(out: &mut Elem<T>, z: &Elem<T>);
-    fn x25519_fe_isnegative(elem: &Elem<T>) -> u8;
-    fn x25519_fe_mul_ttt(h: &mut Elem<T>, f: &Elem<T>, g: &Elem<T>);
-    fn x25519_fe_neg(f: &mut Elem<T>);
-    fn x25519_fe_tobytes(bytes: &mut EncodedPoint, elem: &Elem<T>);
-    fn x25519_ge_frombytes_vartime(h: &mut ExtPoint, s: &EncodedPoint) -> bssl::Result;
+    unsafe fn x25519_fe_invert(z: &mut Elem<Tight>);
+    unsafe fn x25519_fe_isnegative(elem: &Elem<Tight>) -> u8;
+    unsafe fn x25519_fe_mul_assign_tt(f: &mut Elem<Tight>, g: &Elem<Tight>);
+    unsafe fn x25519_fe_neg(f: &mut Elem<Tight>);
+    unsafe fn x25519_fe_tobytes(bytes: &mut [u8; ELEM_LEN], elem: &Elem<Tight>);
 }

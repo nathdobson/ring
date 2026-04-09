@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Brian Smith.
+// Copyright 2015-2026 Brian Smith.
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -14,76 +14,21 @@
 
 //! Build the non-Rust components.
 
-// It seems like it would be a good idea to use `log!` for logging, but it
-// isn't worth having the external dependencies (one for the `log` crate, and
-// another for the concrete logging implementation). Instead we use `eprintln!`
-// to log everything to stderr.
+#![allow(clippy::too_many_arguments)]
 
+// Avoid `std::env` here. All configuration should be done through `Target`,
+// `Profile`, and `Tools`.
+
+use self::path::{join_components_with_forward_slashes_if_windows, walk_dir};
 use std::{
     ffi::{OsStr, OsString},
-    fs::{self, DirEntry},
+    fs,
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
-mod env {
-    use std::ffi::OsString;
-
-    macro_rules! define_env {
-        { $vis:vis $NAME:ident : $ty:ident } => {
-            $vis const $NAME: EnvVar = EnvVar {
-                name: stringify!($NAME),
-                ty: EnvVarTy::$ty,
-            };
-        };
-    }
-
-    enum EnvVarTy {
-        RerunIfChanged,
-        SetByCargo,
-    }
-
-    pub struct EnvVar {
-        pub name: &'static str,
-        ty: EnvVarTy,
-    }
-
-    /// Read an environment variable and optionally tell Cargo that we depend on it.
-    ///
-    /// The env var is static since we intend to only read a static set of environment
-    /// variables.
-    pub fn var_os(env_var: &'static EnvVar) -> Option<OsString> {
-        match env_var.ty {
-            EnvVarTy::RerunIfChanged => {
-                println!("cargo:rerun-if-env-changed={}", env_var.name);
-            }
-            EnvVarTy::SetByCargo => {}
-        }
-        std::env::var_os(env_var.name)
-    }
-
-    pub fn var(env_var: &'static EnvVar) -> Option<String> {
-        var_os(env_var).and_then(|value| value.into_string().ok())
-    }
-
-    // In alphabetical order
-    define_env! { pub CARGO_CFG_TARGET_ARCH: SetByCargo }
-    define_env! { pub CARGO_CFG_TARGET_ENDIAN: SetByCargo }
-    define_env! { pub CARGO_CFG_TARGET_ENV: SetByCargo }
-    define_env! { pub CARGO_CFG_TARGET_OS: SetByCargo }
-    define_env! { pub CARGO_MANIFEST_DIR: SetByCargo }
-    define_env! { pub CARGO_MANIFEST_LINKS: SetByCargo }
-    define_env! { pub CARGO_PKG_NAME: SetByCargo }
-    define_env! { pub CARGO_PKG_VERSION_MAJOR: SetByCargo }
-    define_env! { pub CARGO_PKG_VERSION_MINOR: SetByCargo }
-    define_env! { pub CARGO_PKG_VERSION_PATCH: SetByCargo }
-    define_env! { pub CARGO_PKG_VERSION_PRE: SetByCargo }
-    define_env! { pub DEBUG: SetByCargo }
-    define_env! { pub OUT_DIR: SetByCargo }
-    define_env! { pub PERL_EXECUTABLE: RerunIfChanged }
-    define_env! { pub RING_PREGENERATE_ASM: RerunIfChanged }
-}
+mod path;
 
 const X86: &str = "x86";
 const X86_64: &str = "x86_64";
@@ -157,7 +102,7 @@ const SHA512_ARMV8: &str = "crypto/fipsmodule/sha/asm/sha512-armv8.pl";
 
 const RING_TEST_SRCS: &[&str] = &[("crypto/constant_time_test.c")];
 
-const PREGENERATED: &str = "pregenerated";
+pub const PREGENERATED: &str = "pregenerated";
 
 fn cpp_flags(compiler: &cc::Tool) -> &'static [&'static str] {
     if !compiler.is_like_msvc() {
@@ -188,13 +133,9 @@ fn cpp_flags(compiler: &cc::Tool) -> &'static [&'static str] {
             "/Zc:forScope",
             "/Zc:inline",
             // Warnings.
-            "/Wall",
+            "/W4",
             "/wd4127", // C4127: conditional expression is constant
             "/wd4464", // C4464: relative include path contains '..'
-            "/wd4514", // C4514: <name>: unreferenced inline function has be
-            "/wd4710", // C4710: function not inlined
-            "/wd4711", // C4711: function 'function' selected for inline expansion
-            "/wd4820", // C4820: <struct>: <n> bytes padding added after <name>
             "/wd5045", /* C5045: Compiler will insert Spectre mitigation for memory load if
                         * /Qspectre switch specified */
         ];
@@ -213,7 +154,7 @@ const ASM_TARGETS: &[AsmTarget] = &[
         perlasm_format: "linux64",
     },
     AsmTarget {
-        oss: &[ANDROID, FREEBSD, HORIZON, LINUX, NETBSD],
+        oss: &[ANDROID, FREEBSD, HORIZON, LINUX, NETBSD, VITA],
         arch: ARM,
         perlasm_format: "linux32",
     },
@@ -246,7 +187,7 @@ const ASM_TARGETS: &[AsmTarget] = &[
         perlasm_format: WIN32N,
     },
     AsmTarget {
-        oss: &[WINDOWS],
+        oss: &[WINDOWS, CYGWIN],
         arch: X86_64,
         perlasm_format: NASM,
     },
@@ -257,7 +198,7 @@ const ASM_TARGETS: &[AsmTarget] = &[
     },
 ];
 
-struct AsmTarget {
+pub struct AsmTarget {
     /// Operating systems.
     oss: &'static [&'static str],
 
@@ -269,6 +210,20 @@ struct AsmTarget {
 }
 
 impl AsmTarget {
+    pub fn for_target(target: &Target) -> Option<&'static Self> {
+        if matches!(target.endian, Endian::Little) {
+            ASM_TARGETS.iter().find(|asm_target| {
+                asm_target.arch == target.arch && asm_target.oss.contains(&target.os.as_ref())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn all() -> impl Iterator<Item = &'static Self> {
+        ASM_TARGETS.iter()
+    }
+
     fn use_nasm(&self) -> bool {
         [WIN32N, NASM].contains(&self.perlasm_format)
     }
@@ -288,6 +243,7 @@ const NTO: &str = "nto";
 const OPENBSD: &str = "openbsd";
 const REDOX: &str = "redox";
 const SOLARIS: &str = "solaris";
+const VITA: &str = "vita";
 
 const WIN32N: &str = "win32n";
 const NASM: &str = "nasm";
@@ -297,121 +253,10 @@ const NASM: &str = "nasm";
 const APPLE_ABI: &[&str] = &["ios", "macos", "tvos", "visionos", "watchos"];
 
 const WINDOWS: &str = "windows";
+const CYGWIN: &str = "cygwin";
 
-fn main() {
-    // Avoid assuming the working directory is the same is the $CARGO_MANIFEST_DIR so that toolchains
-    // which may assume other working directories can still build this code.
-    let c_root_dir = PathBuf::from(
-        env::var_os(&env::CARGO_MANIFEST_DIR).expect("CARGO_MANIFEST_DIR should always be set"),
-    );
-
-    // Keep in sync with `core_name_and_version!` in prefixed.rs.
-    let core_name_and_version = [
-        &env::var(&env::CARGO_PKG_NAME).unwrap(),
-        "core",
-        &env::var(&env::CARGO_PKG_VERSION_MAJOR).unwrap(),
-        &env::var(&env::CARGO_PKG_VERSION_MINOR).unwrap(),
-        &env::var(&env::CARGO_PKG_VERSION_PATCH).unwrap(),
-        &env::var(&env::CARGO_PKG_VERSION_PRE).unwrap(), // Often empty
-    ]
-    .join("_");
-    // Ensure `links` in Cargo.toml is consistent with the version.
-    assert_eq!(
-        &env::var(&env::CARGO_MANIFEST_LINKS).unwrap(),
-        &core_name_and_version
-    );
-
-    match env::var_os(&env::RING_PREGENERATE_ASM).as_deref() {
-        Some(s) if s == "1" => {
-            pregenerate_asm_main(&c_root_dir, &core_name_and_version);
-        }
-        None => ring_build_rs_main(&c_root_dir, &core_name_and_version),
-        _ => {
-            panic!("${} has an invalid value", &env::RING_PREGENERATE_ASM.name);
-        }
-    }
-}
-
-fn ring_build_rs_main(c_root_dir: &Path, core_name_and_version: &str) {
-    let out_dir = env::var_os(&env::OUT_DIR).unwrap();
-    let out_dir = PathBuf::from(out_dir);
-
-    let arch = env::var(&env::CARGO_CFG_TARGET_ARCH).unwrap();
-    let os = env::var(&env::CARGO_CFG_TARGET_OS).unwrap();
-    let env = env::var(&env::CARGO_CFG_TARGET_ENV).unwrap();
-    let endian = env::var(&env::CARGO_CFG_TARGET_ENDIAN).unwrap();
-    let is_little_endian = endian == "little";
-
-    let is_git = fs::metadata(c_root_dir.join(".git")).is_ok();
-
-    // Published builds are always built in release mode.
-    let is_debug = is_git && env::var(&env::DEBUG).unwrap() != "false";
-
-    // During local development, force warnings in non-Rust code to be treated
-    // as errors. Since warnings are highly compiler-dependent and compilers
-    // don't maintain backward compatibility w.r.t. which warnings they issue,
-    // don't do this for packaged builds.
-    let force_warnings_into_errors = is_git;
-
-    let target = Target {
-        arch,
-        os,
-        env,
-        is_debug,
-        force_warnings_into_errors,
-    };
-
-    let asm_target = if is_little_endian {
-        ASM_TARGETS.iter().find(|asm_target| {
-            asm_target.arch == target.arch && asm_target.oss.contains(&target.os.as_ref())
-        })
-    } else {
-        None
-    };
-
-    // If `.git` exists then assume this is the "local hacking" case where
-    // we want to make it easy to build *ring* using `cargo build`/`cargo test`
-    // without a prerequisite `package` step, at the cost of needing additional
-    // tools like `Perl` and/or `nasm`.
-    //
-    // If `.git` doesn't exist then assume that this is a packaged build where
-    // we want to optimize for minimizing the build tools required: No Perl,
-    // no nasm, etc.
-    let generated_dir = if !is_git {
-        c_root_dir.join(PREGENERATED)
-    } else {
-        generate_sources_and_preassemble(
-            &out_dir,
-            asm_target.into_iter(),
-            c_root_dir,
-            core_name_and_version,
-        );
-        out_dir.clone()
-    };
-
-    build_c_code(
-        asm_target,
-        &target,
-        &generated_dir,
-        c_root_dir,
-        &out_dir,
-        core_name_and_version,
-    );
-    emit_rerun_if_changed()
-}
-
-fn pregenerate_asm_main(c_root_dir: &Path, core_name_and_version: &str) {
-    let pregenerated = c_root_dir.join(PREGENERATED);
-    fs::create_dir(&pregenerated).unwrap();
-    generate_sources_and_preassemble(
-        &pregenerated,
-        ASM_TARGETS.iter(),
-        c_root_dir,
-        core_name_and_version,
-    );
-}
-
-fn generate_sources_and_preassemble<'a>(
+pub fn generate_sources_and_preassemble<'a>(
+    tools: &Tools,
     out_dir: &Path,
     asm_targets: impl Iterator<Item = &'a AsmTarget>,
     c_root_dir: &Path,
@@ -419,11 +264,9 @@ fn generate_sources_and_preassemble<'a>(
 ) {
     generate_prefix_symbols_headers(out_dir, core_name_and_version).unwrap();
 
-    let perl_exe = get_perl_exe();
-
     for asm_target in asm_targets {
         let perlasm_src_dsts = perlasm_src_dsts(out_dir, asm_target);
-        perlasm(&perl_exe, &perlasm_src_dsts, asm_target, c_root_dir);
+        tools.perlasm(&perlasm_src_dsts, asm_target, c_root_dir);
 
         if asm_target.use_nasm() {
             // Package pregenerated object files in addition to pregenerated
@@ -431,29 +274,43 @@ fn generate_sources_and_preassemble<'a>(
             // to install the assembler.
             let srcs = asm_srcs(perlasm_src_dsts);
             for src in srcs {
-                nasm(&src, asm_target.arch, out_dir, out_dir, c_root_dir);
+                tools.nasm(&src, asm_target.arch, out_dir, out_dir, c_root_dir);
             }
         }
     }
 }
 
-struct Target {
-    arch: String,
-    os: String,
-    env: String,
+pub struct Target {
+    pub arch: String,
+    pub os: String,
+    pub env: String,
+    pub endian: Endian,
+}
 
+pub enum Endian {
+    Little,
+    Other,
+}
+
+pub struct Profile {
     /// Is this a debug build? This affects whether assertions might be enabled
     /// in the C code. For packaged builds, this should always be `false`.
-    is_debug: bool,
+    pub is_debug: bool,
 
     /// true: Force warnings to be treated as errors.
     /// false: Use the default behavior (perhaps determined by `$CFLAGS`, etc.)
-    force_warnings_into_errors: bool,
+    pub force_warnings_into_errors: bool,
 }
 
-fn build_c_code(
+pub struct Tools<'a> {
+    pub perl_exe: &'a Path,
+    pub nasm_exe: &'a OsStr,
+}
+
+pub fn build_c_code(
     asm_target: Option<&AsmTarget>,
     target: &Target,
+    profile: &Profile,
     generated_dir: &Path,
     c_root_dir: &Path,
     out_dir: &Path,
@@ -488,7 +345,7 @@ fn build_c_code(
                 // them.
                 if extension == "S"
                     && (target.arch == X86_64 || target.arch == X86)
-                    && target.os == WINDOWS
+                    && (target.os == WINDOWS || target.os == CYGWIN)
                 {
                     return false;
                 }
@@ -521,6 +378,7 @@ fn build_c_code(
             let srcs = srcs.iter().chain(asm_srcs);
             build_library(
                 target,
+                profile,
                 c_root_dir,
                 out_dir,
                 lib_name,
@@ -536,14 +394,20 @@ fn build_c_code(
     );
 }
 
-fn new_build(target: &Target, c_root_dir: &Path, include_dir: &Path) -> cc::Build {
+fn new_build(
+    target: &Target,
+    profile: &Profile,
+    c_root_dir: &Path,
+    include_dir: &Path,
+) -> cc::Build {
     let mut b = cc::Build::new();
-    configure_cc(&mut b, target, c_root_dir, include_dir);
+    configure_cc(&mut b, target, profile, c_root_dir, include_dir);
     b
 }
 
 fn build_library<'a>(
     target: &Target,
+    profile: &Profile,
     c_root_dir: &Path,
     out_dir: &Path,
     lib_name: &str,
@@ -551,7 +415,7 @@ fn build_library<'a>(
     include_dir: &Path,
     preassembled_objs: &[PathBuf],
 ) {
-    let mut c = new_build(target, c_root_dir, include_dir);
+    let mut c = new_build(target, profile, c_root_dir, include_dir);
 
     // Compile all the (dirty) source files into object files.
     srcs.for_each(|src| {
@@ -589,15 +453,19 @@ fn obj_path(out_dir: &Path, src: &Path) -> PathBuf {
     out_path
 }
 
-fn configure_cc(c: &mut cc::Build, target: &Target, c_root_dir: &Path, include_dir: &Path) {
-    let compiler = c.get_compiler();
-    // FIXME: On Windows AArch64 we currently must use Clang to compile C code
-    let compiler = if target.os == WINDOWS && target.arch == AARCH64 && !compiler.is_like_clang() {
-        let _ = c.compiler("clang");
-        c.get_compiler()
-    } else {
-        compiler
+fn configure_cc(
+    c: &mut cc::Build,
+    target: &Target,
+    profile: &Profile,
+    c_root_dir: &Path,
+    include_dir: &Path,
+) {
+    // FIXME: On Windows AArch64 we currently must use Clang to compile C code.
+    // clang-cl emulates the cl.exe command line, `$CFLAGS`, etc.
+    if target.os == WINDOWS && target.arch == AARCH64 {
+        let _: &_ = c.prefer_clang_cl_over_msvc(true);
     };
+    let compiler = c.get_compiler();
 
     let _ = c.include(c_root_dir.join("include"));
     let _ = c.include(include_dir);
@@ -612,7 +480,7 @@ fn configure_cc(c: &mut cc::Build, target: &Target, c_root_dir: &Path, include_d
         let _ = c.flag("-g3");
     };
 
-    if !target.is_debug {
+    if !profile.is_debug {
         let _ = c.define("NDEBUG", None);
     }
 
@@ -634,37 +502,39 @@ fn configure_cc(c: &mut cc::Build, target: &Target, c_root_dir: &Path, include_d
         }
     }
 
-    if target.force_warnings_into_errors {
+    if profile.force_warnings_into_errors {
         c.warnings_into_errors(true);
     }
 }
 
-fn nasm(file: &Path, arch: &str, include_dir: &Path, out_dir: &Path, c_root_dir: &Path) {
-    let out_file = obj_path(out_dir, file);
-    let oformat = match arch {
-        x if x == X86_64 => "win64",
-        x if x == X86 => "win32",
-        _ => panic!("unsupported arch: {arch}"),
-    };
+impl Tools<'_> {
+    fn nasm(&self, file: &Path, arch: &str, include_dir: &Path, out_dir: &Path, c_root_dir: &Path) {
+        let out_file = obj_path(out_dir, file);
+        let oformat = match arch {
+            x if x == X86_64 => "win64",
+            x if x == X86 => "win32",
+            _ => panic!("unsupported arch: {arch}"),
+        };
 
-    // Nasm requires that the path end in a path separator.
-    let mut include_dir = include_dir.as_os_str().to_os_string();
-    include_dir.push(OsString::from(String::from(std::path::MAIN_SEPARATOR)));
+        // Nasm requires that the path end in a path separator.
+        let mut include_dir = include_dir.as_os_str().to_os_string();
+        include_dir.push(OsString::from(String::from(std::path::MAIN_SEPARATOR)));
 
-    let mut c = Command::new("./target/tools/windows/nasm/nasm");
-    let _ = c
-        .arg("-o")
-        .arg(out_file.to_str().expect("Invalid path"))
-        .arg("-f")
-        .arg(oformat)
-        .arg("-i")
-        .arg("include/")
-        .arg("-i")
-        .arg(include_dir)
-        .arg("-Xgnu")
-        .arg("-gcv8")
-        .arg(c_root_dir.join(file));
-    run_command(c);
+        let mut c = Command::new(self.nasm_exe);
+        let _ = c
+            .arg("-o")
+            .arg(out_file.to_str().expect("Invalid path"))
+            .arg("-f")
+            .arg(oformat)
+            .arg("-i")
+            .arg("include/")
+            .arg("-i")
+            .arg(include_dir)
+            .arg("-Xgnu")
+            .arg("-gcv8")
+            .arg(c_root_dir.join(file));
+        run_command(c);
+    }
 }
 
 fn run_command_with_args(command_name: &Path, args: &[OsString]) {
@@ -741,69 +611,37 @@ fn asm_path(out_dir: &Path, src: &Path, asm_target: &AsmTarget) -> PathBuf {
     out_dir.join(dst_filename).with_extension(extension)
 }
 
-fn perlasm(
-    perl_exe: &Path,
-    src_dst: &[(PathBuf, PathBuf)],
-    asm_target: &AsmTarget,
-    c_root_dir: &Path,
-) {
-    for (src, dst) in src_dst {
-        let mut args = vec![
-            join_components_with_forward_slashes(&c_root_dir.join(src)),
-            asm_target.perlasm_format.into(),
-        ];
-        if asm_target.arch == X86 {
-            args.push("-fPIC".into());
+impl Tools<'_> {
+    fn perlasm(&self, src_dst: &[(PathBuf, PathBuf)], asm_target: &AsmTarget, c_root_dir: &Path) {
+        for (src, dst) in src_dst {
+            let mut args = vec![
+                join_components_with_forward_slashes_if_windows(&c_root_dir.join(src)),
+                asm_target.perlasm_format.into(),
+            ];
+            if asm_target.arch == X86 {
+                args.push("-fPIC".into());
+            }
+            // Work around PerlAsm issue for ARM and AAarch64 targets by replacing
+            // back slashes with forward slashes.
+            args.push(join_components_with_forward_slashes_if_windows(dst));
+            run_command_with_args(self.perl_exe, &args);
         }
-        // Work around PerlAsm issue for ARM and AAarch64 targets by replacing
-        // back slashes with forward slashes.
-        args.push(join_components_with_forward_slashes(dst));
-        run_command_with_args(perl_exe, &args);
     }
 }
 
-fn join_components_with_forward_slashes(path: &Path) -> OsString {
-    let parts = path.components().map(|c| c.as_os_str()).collect::<Vec<_>>();
-    parts.join(OsStr::new("/"))
-}
-
-fn get_perl_exe() -> PathBuf {
-    get_command(&env::PERL_EXECUTABLE, "perl")
-}
-
-fn get_command(var: &'static env::EnvVar, default: &str) -> PathBuf {
-    PathBuf::from(env::var_os(var).unwrap_or_else(|| default.into()))
-}
-
-// TODO: We should emit `cargo:rerun-if-changed-env` for the various
-// environment variables that affect the build.
-fn emit_rerun_if_changed() {
+pub fn walk_non_root_sources(f: impl Fn(&Path)) {
     for path in &["crypto", "include", "third_party/fiat"] {
         walk_dir(&PathBuf::from(path), &|entry| {
             let path = entry.path();
             match path.extension().and_then(|ext| ext.to_str()) {
                 Some("c") | Some("S") | Some("h") | Some("inl") | Some("pl") | None => {
-                    println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+                    f(&path);
                 }
                 _ => {
                     // Ignore other types of files.
                 }
             }
         })
-    }
-}
-
-fn walk_dir(dir: &Path, cb: &impl Fn(&DirEntry)) {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_dir() {
-                walk_dir(&path, cb);
-            } else {
-                cb(&entry);
-            }
-        }
     }
 }
 
@@ -1025,19 +863,21 @@ fn prefix_all_symbols(pp: char, prefix_prefix: &str, prefix: &str) -> String {
         "x25519_NEON",
         "x25519_fe_invert",
         "x25519_fe_isnegative",
-        "x25519_fe_mul_ttt",
+        "x25519_fe_mul_assign_tt",
         "x25519_fe_neg",
         "x25519_fe_tobytes",
         "x25519_ge_double_scalarmult_vartime",
         "x25519_ge_frombytes_vartime",
         "x25519_ge_scalarmult_base",
         "x25519_ge_scalarmult_base_adx",
+        "x25519_ge_scalarmult_base_adx_from_bytes",
         "x25519_public_from_private_generic_masked",
         "x25519_sc_mask",
         "x25519_sc_muladd",
         "x25519_sc_reduce",
         "x25519_scalar_mult_adx",
         "x25519_scalar_mult_generic_masked",
+        "x25519_u_coordinate",
     ];
 
     let mut out = String::new();

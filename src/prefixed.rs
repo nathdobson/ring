@@ -27,21 +27,15 @@ macro_rules! prefixed_extern {
     {
         $(
             $( #[$meta:meta] )*
-            $vis:vis fn $name:ident ( $( $arg_pat:ident : $arg_ty:ty ),* $(,)? )
+            $vis:vis unsafe fn $name:ident ( $( $arg_pat:ident : $arg_ty:ty ),* $(,)? )
             $( -> $ret_ty:ty )?;
         )+
     } => {
-        extern "C" {
+        unsafe extern "C" {
             $(
-                prefixed_item! {
-                    link_name
-                    $name
-                    {
-                        $( #[$meta] )*
-                        $vis fn $name ( $( $arg_pat : $arg_ty ),* ) $( -> $ret_ty )?;
-                    }
-
-                }
+                $( #[$meta] )*
+                #[link_name = concat!(prefix!(), stringify!($name))]
+                $vis unsafe fn $name ( $( $arg_pat : $arg_ty ),* ) $( -> $ret_ty )?;
             )+
         }
     };
@@ -49,34 +43,12 @@ macro_rules! prefixed_extern {
     // A `static` global variable.
     {
         $( #[$meta:meta] )*
-        $vis:vis static $name:ident: $typ:ty;
+        $vis:vis unsafe static $name:ident: $typ:ty;
     } => {
-        extern "C" {
-            prefixed_item! {
-                link_name
-                $name
-                {
-                    $( #[$meta] )*
-                    $vis static $name: $typ;
-                }
-            }
-        }
-    };
-
-    // A `static mut` global variable.
-    {
-        $( #[$meta:meta] )*
-        $vis:vis static mut $name:ident: $typ:ty;
-    } => {
-        extern "C" {
-            prefixed_item! {
-                link_name
-                $name
-                {
-                    $( #[$meta] )*
-                    $vis static mut $name: $typ;
-                }
-            }
+        unsafe extern "C" {
+            $( #[$meta] )*
+            #[link_name = concat!(prefix!(), stringify!($name))]
+            $vis unsafe static $name: $typ;
         }
     };
 }
@@ -92,27 +64,11 @@ macro_rules! prefixed_export {
     // A function.
     {
         $( #[$meta:meta] )*
-        $vis:vis unsafe extern "C"
-        fn $name:ident ( $( $arg_pat:ident : $arg_ty:ty ),* $(,)? ) $body:block
+        $vis:vis unsafe extern "C" fn
+        $name:ident ( $( $arg_pat:ident : $arg_ty:ty ),* $(,)? ) $body:block
     } => {
-        prefixed_item! {
-            export_name
-            $name
-            {
-                $( #[$meta] )*
-                $vis unsafe extern "C" fn $name ( $( $arg_pat : $arg_ty ),* ) $body
-            }
-        }
-    };
-}
-
-macro_rules! prefixed_item {
-    {
-        $attr:ident
-        $name:ident
-        { $item:item }
-    } => {
-        #[$attr = concat!(prefix!(), stringify!($name))]
-        $item
+        $( #[$meta] )*
+        #[unsafe(export_name = concat!(prefix!(), stringify!($name)))]
+        $vis unsafe extern "C" fn $name ( $( $arg_pat : $arg_ty ),* ) $body
     };
 }

@@ -17,11 +17,11 @@
 use crate::polyfill::prelude::*;
 
 use super::{
-    super::overlapping::IndexError, ffi, Block, Counter, EncryptBlock, EncryptCtr32, Iv, KeyBytes,
-    Overlapping, BLOCK_LEN,
+    super::overlapping::IndexError, BLOCK_LEN, Block, Counter, EncryptBlock, EncryptCtr32, Iv,
+    KeyBytes, Overlapping, ffi,
 };
 use crate::{bb, polyfill::usize_from_u32};
-use core::{array, mem::size_of, num::NonZeroU32};
+use core::{array, mem::size_of, num::NonZero};
 
 #[derive(Clone)]
 pub enum Key {
@@ -767,7 +767,7 @@ impl EncryptCtr32 for Key {
         // XXX(unwrap): The caller is responsible for ensuring that the input is
         // short enough to avoid overflow.
         let blocks = u32::try_from(in_out.len() / BLOCK_LEN).unwrap();
-        let Some(blocks) = NonZeroU32::new(blocks) else {
+        let Some(blocks) = NonZero::new(blocks) else {
             return;
         };
 

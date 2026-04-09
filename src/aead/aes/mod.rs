@@ -12,12 +12,9 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use super::{nonce::Nonce, overlapping, quic::Sample, Overlapping, NONCE_LEN};
-use crate::{
-    cpu::{self, GetFeature as _},
-    polyfill::unwrap_const,
-};
-use core::num::NonZeroU32;
+use super::{NONCE_LEN, Overlapping, nonce::Nonce, overlapping, quic::Sample};
+use crate::cpu::{self, GetFeature as _};
+use core::num::NonZero;
 
 #[cfg(all(target_arch = "aarch64", target_endian = "little"))]
 pub(super) use self::ffi::{RdKey, Rounds};
@@ -129,14 +126,14 @@ impl Counter {
     }
 
     pub fn increment(&mut self) -> Iv {
-        const ONE: NonZeroU32 = unwrap_const(NonZeroU32::new(1));
+        const ONE: NonZero<u32> = NonZero::new(1).unwrap();
 
         let iv = Iv(self.0);
         self.increment_by_less_safe(ONE);
         iv
     }
 
-    pub(super) fn increment_by_less_safe(&mut self, increment_by: NonZeroU32) {
+    pub(super) fn increment_by_less_safe(&mut self, increment_by: NonZero<u32>) {
         let [.., c0, c1, c2, c3] = &mut self.0;
         let old_value: u32 = u32::from_be_bytes([*c0, *c1, *c2, *c3]);
         let new_value = old_value.wrapping_add(increment_by.get());
@@ -191,80 +188,4 @@ fn encrypt_iv_xor_block_using_ctr32(key: &impl EncryptCtr32, iv: Iv, mut block: 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::testutil as test;
-
-    #[test]
-    pub fn test_aes() {
-        test::run(test_vector_file!("aes_tests.txt"), |section, test_case| {
-            assert_eq!(section, "");
-            let key = consume_key(test_case, "Key");
-            let input = test_case.consume_bytes("Input");
-            let block: Block = input.as_slice().try_into()?;
-            let expected_output = test_case.consume_bytes("Output");
-
-            let output = key.encrypt_block(block);
-            assert_eq!(output.as_ref(), &expected_output[..]);
-
-            Ok(())
-        })
-    }
-
-    fn consume_key(test_case: &mut test::TestCase, name: &str) -> Key {
-        let key = test_case.consume_bytes(name);
-        let key = &key[..];
-        let key = match key.len() {
-            16 => KeyBytes::AES_128(key.try_into().unwrap()),
-            32 => KeyBytes::AES_256(key.try_into().unwrap()),
-            _ => unreachable!(),
-        };
-        Key::new(key, cpu::features())
-    }
-}
-
-// These AES-GCM-specific tests are here instead of in `aes_gcm` because
-// `Counter`'s API isn't visible (enough) to aes_gcm.
-#[cfg(test)]
-mod aes_gcm_tests {
-    use super::{super::aes_gcm::MAX_IN_OUT_LEN, *};
-    use core::num::NonZeroU32;
-
-    #[test]
-    fn test_aes_gcm_counter_blocks_max() {
-        test_aes_gcm_counter_blocks(MAX_IN_OUT_LEN, &[0, 0, 0, 0]);
-    }
-
-    #[test]
-    fn test_aes_gcm_counter_blocks_max_minus_one() {
-        test_aes_gcm_counter_blocks(MAX_IN_OUT_LEN - BLOCK_LEN, &[0xff, 0xff, 0xff, 0xff]);
-    }
-
-    fn test_aes_gcm_counter_blocks(in_out_len: usize, expected_final_counter: &[u8; 4]) {
-        fn ctr32(ctr: &Counter) -> &[u8; 4] {
-            (&ctr.0[12..]).try_into().unwrap()
-        }
-
-        let rounded_down = in_out_len / BLOCK_LEN;
-        let blocks = rounded_down + (if in_out_len % BLOCK_LEN == 0 { 0 } else { 1 });
-        let blocks = u32::try_from(blocks)
-            .ok()
-            .and_then(NonZeroU32::new)
-            .unwrap();
-
-        let nonce = Nonce::assume_unique_for_key([1; 12]);
-        let mut ctr = Counter::one(nonce);
-        assert_eq!(ctr32(&ctr), &[0, 0, 0, 1]);
-        let _tag_iv = ctr.increment();
-        assert_eq!(ctr32(&ctr), &[0, 0, 0, 2]);
-        ctr.increment_by_less_safe(blocks);
-
-        // `MAX_IN_OUT_LEN` is less on 32-bit targets, so we don't even get
-        // close to wrapping, but run the tests on them anyway.
-        #[cfg(target_pointer_width = "64")]
-        assert_eq!(ctr32(&ctr), expected_final_counter);
-
-        #[cfg(target_pointer_width = "32")]
-        let _ = expected_final_counter;
-    }
-}
+mod tests;

@@ -128,6 +128,7 @@ impl SystemRandom {
     all(feature = "less-safe-getrandom-espidf", target_os = "espidf"),
     target_os = "aix",
     target_os = "android",
+    target_os = "cygwin",
     target_os = "dragonfly",
     target_os = "freebsd",
     target_os = "fuchsia",
@@ -165,6 +166,6 @@ impl SystemRandom {
 impl sealed::SecureRandom for SystemRandom {
     #[inline(always)]
     fn fill_impl(&self, dest: &mut [u8], _: crate::sealed::Arg) -> Result<(), error::Unspecified> {
-        getrandom::getrandom(dest).map_err(|_| error::Unspecified)
+        getrandom::fill(dest).map_err(|_| error::Unspecified)
     }
 }

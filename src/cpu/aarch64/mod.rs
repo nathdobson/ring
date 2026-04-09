@@ -33,13 +33,11 @@ mod abi_assumptions {
     // audit all the `prefixed_extern!`s for AArch64 and change every pointer
     // to a not-yet-existing 64-bit "zero-extended pointer" type, and change
     // every other <64-bit parameter type to the corresponding 64-bit type.
+    //
+    // XXX: AArch64-ILP32 is untested.
     const _ASSUMED_POINTER_SIZE: usize =
         if cfg!(all(target_os = "watchos", target_pointer_width = "32")) {
-            todo!(); // Need to run tests for this ABI.
-            #[allow(unreachable_code)]
-            {
-                4
-            }
+            4
         } else {
             8
         };
@@ -96,10 +94,10 @@ pub(super) mod featureflags {
     pub(in super::super) use super::detect::FORCE_DYNAMIC_DETECTION;
     use super::*;
     use crate::{cpu, polyfill::once_cell::race};
-    use core::num::NonZeroU32;
+    use core::num::NonZero;
 
     pub(in super::super) fn get_or_init() -> cpu::Features {
-        fn init() -> NonZeroU32 {
+        fn init() -> NonZero<u32> {
             let detected = detect::detect_features();
             let filtered = (if cfg!(feature = "unstable-testing-arm-no-hw") {
                 !Neon::mask()
@@ -117,7 +115,7 @@ pub(super) mod featureflags {
 
         // SAFETY: This is the only caller. Any concurrent reading doesn't
         // affect the safety of the writing.
-        let _: NonZeroU32 = FEATURES.get_or_init(init);
+        let _: NonZero<u32> = FEATURES.get_or_init(init);
 
         // SAFETY: We initialized the CPU features as required.
         unsafe { cpu::Features::new_after_feature_flags_written_and_synced_unchecked() }

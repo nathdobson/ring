@@ -17,9 +17,9 @@
 #[allow(unused_imports)]
 use crate::polyfill::prelude::*;
 
-use super::{aes, gcm, Counter, Overlapping, BLOCK_LEN};
+use super::{BLOCK_LEN, Counter, Overlapping, aes, gcm};
 use crate::{bits::BitLength, polyfill::u64_from_usize};
-use core::num::NonZeroU64;
+use core::num::NonZero;
 
 pub(super) fn seal_whole(
     aes_key: &aes::hw::Key,
@@ -28,9 +28,9 @@ pub(super) fn seal_whole(
     in_out: &mut [[u8; BLOCK_LEN]],
 ) {
     prefixed_extern! {
-        fn aes_gcm_enc_kernel(
+        unsafe fn aes_gcm_enc_kernel(
             input: *const [u8; BLOCK_LEN],
-            in_bits: BitLength<NonZeroU64>,
+            in_bits: BitLength<NonZero<u64>>,
             output: *mut [u8; BLOCK_LEN],
             Xi: &mut gcm::Xi,
             ivec: &mut Counter,
@@ -68,9 +68,9 @@ pub(super) fn open_whole(
     ctr: &mut Counter,
 ) {
     prefixed_extern! {
-        fn aes_gcm_dec_kernel(
+        unsafe fn aes_gcm_dec_kernel(
             input: *const u8,
-            in_bits: BitLength<NonZeroU64>,
+            in_bits: BitLength<NonZero<u64>>,
             output: *mut u8,
             Xi: &mut gcm::Xi,
             ivec: &mut Counter,

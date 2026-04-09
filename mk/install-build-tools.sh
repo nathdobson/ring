@@ -194,7 +194,8 @@ sparc64-unknown-linux-gnu)
     libc6-dev-sparc64-cross
   ;;
 wasm32-unknown-unknown)
-  cargo install wasm-bindgen-cli --bin wasm-bindgen-test-runner
+  # Keep in sync with the version of `wasm-bindgen-test` in Cargo.toml.
+  cargo install --locked wasm-bindgen-cli --version 0.2.114 --bin wasm-bindgen-test-runner
   use_clang=1
   ;;
 wasm32-wasi|wasm32-wasip1|wasm32-wasip2)

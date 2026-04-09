@@ -18,7 +18,7 @@
 
 #![cfg(all(target_arch = "arm", target_endian = "little"))]
 
-use super::{Key, Tag, BLOCK_LEN};
+use super::{BLOCK_LEN, Key, Tag};
 use crate::{c, cpu::arm::Neon, polyfill::sliceutil};
 use core::{ffi::c_int, num::Wrapping};
 
@@ -41,8 +41,8 @@ impl fe1305x2 {
 
 prefixed_extern! {
     // `r` may alias with `x`.
-    fn openssl_poly1305_neon2_addmulmod(r: *mut fe1305x2, x: *const fe1305x2, y: &fe1305x2,
-                                        c: &fe1305x2);
+    unsafe fn openssl_poly1305_neon2_addmulmod(r: *mut fe1305x2, x: *const fe1305x2, y: &fe1305x2,
+                                               c: &fe1305x2);
 }
 
 fn addmulmod(r: &mut fe1305x2, x: &fe1305x2, y: &fe1305x2, c: &fe1305x2, _: Neon) {
@@ -57,8 +57,8 @@ fn addmulmod_assign(r: &mut fe1305x2, y: &fe1305x2, c: &fe1305x2, _: Neon) {
 
 fn blocks(r: &mut fe1305x2, precomp: &[fe1305x2; 2], input: &[u8], _: Neon) -> usize {
     prefixed_extern! {
-        // TODO: `len: c::NonZero_size_t`?
-        fn openssl_poly1305_neon2_blocks(
+        // TODO: `len: NonZero<c::size_t>`?
+        unsafe fn openssl_poly1305_neon2_blocks(
             x: &mut fe1305x2,
             precomp: &[fe1305x2; 2],
             input: *const u8,

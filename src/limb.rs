@@ -22,12 +22,13 @@ use crate::{
     bb, c,
     error::{self, LenMismatchError},
     polyfill::{
+        ArrayFlatMap, StartMutPtr,
         slice::{AliasingSlices, Cursor, InOut},
-        sliceutil, usize_from_u32, ArrayFlatMap, StartMutPtr,
+        sliceutil, usize_from_u32,
     },
     window5::Window5,
 };
-use core::{iter, num::NonZeroUsize};
+use core::{iter, num::NonZero};
 
 #[cfg(feature = "alloc")]
 use core::num::Wrapping;
@@ -37,7 +38,7 @@ use core::ops::RangeInclusive;
 pub type Limb = bb::Word;
 pub type LeakyLimb = bb::LeakyWord;
 pub const LIMB_BITS: usize = usize_from_u32(Limb::BITS);
-pub const LIMB_BYTES: usize = (LIMB_BITS + 7) / 8;
+pub const LIMB_BYTES: usize = LIMB_BITS.div_ceil(8);
 
 pub const ZERO: LeakyLimb = 0;
 
@@ -55,14 +56,14 @@ pub fn limbs_equal_limbs_consttime(a: &[Limb], b: &[Limb]) -> Result<LimbMask, L
 #[inline]
 fn limbs_less_than_limbs(a: &[Limb], b: &[Limb]) -> Result<LimbMask, LenMismatchError> {
     prefixed_extern! {
-        fn LIMBS_less_than(a: *const Limb, b: *const Limb, num_limbs: c::NonZero_size_t)
+        unsafe fn LIMBS_less_than(a: *const Limb, b: *const Limb, num_limbs: NonZero<c::size_t>)
             -> LimbMask;
     }
     // Use `b.len` because usually `b` will be the modulus which is likely to
     // have had its length checked already so this can be elided by the
     // optimizer.
     // XXX: Questionable whether `LenMismatchError` is appropriate.
-    let len = NonZeroUsize::new(b.len()).ok_or_else(|| LenMismatchError::new(a.len()))?;
+    let len = NonZero::new(b.len()).ok_or_else(|| LenMismatchError::new(a.len()))?;
     if a.len() != len.get() {
         return Err(LenMismatchError::new(a.len()));
     }
@@ -126,9 +127,9 @@ pub fn verify_limbs_equal_1_leak_bit(a: &[Limb]) -> Result<(), error::Unspecifie
 #[inline]
 pub fn limbs_reduce_once(r: &mut [Limb], m: &[Limb]) -> Result<(), LenMismatchError> {
     prefixed_extern! {
-        fn LIMBS_reduce_once(r: *mut Limb, m: *const Limb, num_limbs: c::NonZero_size_t);
+        unsafe fn LIMBS_reduce_once(r: *mut Limb, m: *const Limb, num_limbs: NonZero<c::size_t>);
     }
-    let num_limbs = NonZeroUsize::new(r.len()).ok_or_else(|| LenMismatchError::new(m.len()))?;
+    let num_limbs = NonZero::new(r.len()).ok_or_else(|| LenMismatchError::new(m.len()))?;
     let r = r.as_mut_ptr(); // Non-dangling because num_limbs is non-zero.
     let m = m.as_ptr(); // Non-dangling because num_limbs is non-zero.
     unsafe { LIMBS_reduce_once(r, m, num_limbs) };
@@ -238,12 +239,12 @@ pub fn fold_5_bit_windows<R, I: FnOnce(Window5) -> R, F: Fn(R, Window5) -> R>(
     const WINDOW_BITS: Wrapping<c::size_t> = Wrapping(5);
 
     prefixed_extern! {
-        fn LIMBS_window5_split_window(
+        unsafe fn LIMBS_window5_split_window(
             lower_limb: Limb,
             higher_limb: Limb,
             index_within_word: BitIndex,
         ) -> Window5;
-        fn LIMBS_window5_unsplit_window(limb: Limb, index_within_word: BitIndex) -> Window5;
+        unsafe fn LIMBS_window5_unsplit_window(limb: Limb, index_within_word: BitIndex) -> Window5;
     }
 
     let num_limbs = limbs.len();
@@ -295,15 +296,15 @@ pub(crate) fn limbs_add_assign_mod(
 ) -> Result<(), LenMismatchError> {
     prefixed_extern! {
         // `r` and `a` may alias.
-        fn LIMBS_add_mod(
+        unsafe fn LIMBS_add_mod(
             r: *mut Limb,
             a: *const Limb,
             b: *const Limb,
             m: *const Limb,
-            num_limbs: c::NonZero_size_t,
+            num_limbs: NonZero<c::size_t>,
         );
     }
-    let num_limbs = NonZeroUsize::new(m.len()).ok_or_else(|| LenMismatchError::new(m.len()))?;
+    let num_limbs = NonZero::new(m.len()).ok_or_else(|| LenMismatchError::new(m.len()))?;
     (InOut(a), b).with_non_dangling_non_null_pointers(num_limbs, |mut r, [a, b]| {
         let m = m.as_ptr(); // Also non-dangling because `num_limbs` is non-zero.
         unsafe {
@@ -316,13 +317,13 @@ pub(crate) fn limbs_add_assign_mod(
 pub(crate) fn limbs_double_mod(r: &mut [Limb], m: &[Limb]) -> Result<(), LenMismatchError> {
     prefixed_extern! {
         // `r` and `a` may alias.
-        fn LIMBS_shl_mod(
+        unsafe fn LIMBS_shl_mod(
             r: *mut Limb,
             a: *const Limb,
             m: *const Limb,
-            num_limbs: c::NonZero_size_t);
+            num_limbs: NonZero<c::size_t>);
     }
-    let num_limbs = NonZeroUsize::new(m.len()).ok_or_else(|| LenMismatchError::new(m.len()))?;
+    let num_limbs = NonZero::new(m.len()).ok_or_else(|| LenMismatchError::new(m.len()))?;
     r.with_non_dangling_non_null_pointers(num_limbs, |mut r, [a]| {
         let m = m.as_ptr(); // Also non-dangling because num_limbs > 0.
         unsafe {

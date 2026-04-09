@@ -1,8 +1,8 @@
 [package]
-build = "build.rs"
+build = "build/cargo.rs"
 categories = ["cryptography", "no-std"]
 description = "An experiment."
-edition = "2021"
+edition = "2024"
 keywords = ["crypto", "cryptography", "rand", "ECC", "RSA"]
 license = "Apache-2.0 AND ISC"
 name = "ring"
@@ -11,17 +11,22 @@ repository = "https://github.com/briansmith/ring"
 # Keep in sync with .github/workflows/ci.yml ("MSRV") and see the MSRV note
 # in cpu/arm.rs.
 # 1.66 is required on x86/x86_64 for https://github.com/rust-lang/rust/pull/101861.
-rust-version = "1.66.0"
+# Our `getrandom` dependency as of 0.4.2 has MSRV 1.85 on most targets; it
+# has MSRV 1.87 on wasm32-wasip3; see
+# https://github.com/rust-random/getrandom/pull/824.
+rust-version = "1.85"
 
 # Keep in sync with `links` below.
-version = "0.17.14"
+# For normal (SemVer-compatible) updates, bump this to the next multiple of 1000
+# to leave room for 999 patches to the previous version.
+version = "0.17.16000"
 
 # Keep in sync with `version` above.
 #
 # build.rs verifies that this equals "ring_core_{major}_{minor}_{patch}_{pre}"
 # as keeping this in sync with the symbol prefixing is crucial for ensuring
 # the safety of multiple versions of *ring* being used in a program.
-links = "ring_core_0_17_14_"
+links = "ring_core_0_17_16000_"
 
 include = [
     "LICENSE",
@@ -35,7 +40,10 @@ include = [
     "pregenerated/*",
 
     "benches/*.rs",
-    "build.rs",
+
+    "build/build.rs",
+    "build/build/path.rs",
+    "build/cargo.rs",
 
     "crypto/chacha/asm/chacha-armv4.pl",
     "crypto/chacha/asm/chacha-armv8.pl",
@@ -153,7 +161,12 @@ name = "ring"
 
 [dependencies]
 cfg-if = { version = "1.0.0", default-features = false }
-getrandom = { version = "0.2.10" }
+
+# `CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS=fallback cargo update -p getrandom`.
+# On wasm32-wasip3, this depends on a version of wasip3 that has a higher MSRV;
+# see https://github.com/rust-random/getrandom/pull/824.
+getrandom = { version = "0.4.2" }
+
 untrusted = { version = "0.9" }
 
 [target.'cfg(all(any(all(target_arch = "aarch64", target_endian = "little"), all(target_arch = "arm", target_endian = "little")), any(target_os = "android", target_os = "linux")))'.dependencies]
@@ -163,10 +176,10 @@ libc = { version = "0.2.172", default-features = false }
 libc = { version = "0.2.172", default-features = false }
 
 [target.'cfg(all(all(target_arch = "aarch64", target_endian = "little"), target_os = "windows"))'.dependencies]
-windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_System_Threading"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
-wasm-bindgen-test = { version = "0.3.37", default-features = false, features = ["std"] }
+wasm-bindgen-test = { version = "0.3.64", default-features = false, features = ["std"] }
 
 [target.'cfg(any(unix, windows, target_os = "wasi"))'.dev-dependencies]
 libc = { version = "0.2.172", default-features = false }
@@ -186,7 +199,7 @@ std = ["alloc"]
 unstable-testing-arm-no-hw = []
 unstable-testing-arm-no-neon = []
 test_logging = []
-wasm32_unknown_unknown_js = ["getrandom/js"]
+wasm32_unknown_unknown_js = ["getrandom/wasm_js"]
 
 [package.metadata.cargo-semver-checks.lints]
 trait_marked_deprecated = { level = "warn" }

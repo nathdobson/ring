@@ -22,6 +22,7 @@ use super::{
 };
 #[cfg(feature="alloc")]
 use core::num::NonZeroU64;
+use core::num::NonZero;
 
 /// Calculates base**exponent (mod m).
 ///
@@ -36,7 +37,7 @@ use core::num::NonZeroU64;
 pub(crate) fn elem_exp_vartime<M>(
     out: Uninit<M>,
     base: Elem<M, R>,
-    exponent: NonZeroU64,
+    exponent: NonZero<u64>,
     m: &Mont<M>,
 ) -> Elem<M, R> {
     // Use what [Knuth] calls the "S-and-X binary method", i.e. variable-time

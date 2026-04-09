@@ -9,7 +9,7 @@ jobs:
     # Don't run duplicate `push` jobs for the repo owner's PRs.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - run: rustup --version
@@ -21,10 +21,13 @@ jobs:
       - run: cargo fmt --all -- --check
 
   clippy:
-    # Don't run duplicate `push` jobs for the repo owner's PRs.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.host_os }}
 
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        host_os:
+          - macos-15
+          - ubuntu-24.04
 
     steps:
       - run: rustup --version
@@ -39,7 +42,7 @@ jobs:
     # Don't run duplicate `push` jobs for the repo owner's PRs.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - run: rustup --version
@@ -50,20 +53,18 @@ jobs:
             ~/.cargo/bin/cargo-audit
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
-          key: ${{ runner.os }}-v2-cargo-audit-locked-0.20.1
+          key: ${{ runner.os }}-v2-cargo-audit-locked-0.22.1
 
-      - run: cargo install cargo-audit  --locked --vers "0.20.1"
+      - run: cargo install cargo-audit  --locked --vers "0.22.1"
 
       - uses: briansmith/actions-checkout@v4
         with:
           persist-credentials: false
 
-      - run: cargo generate-lockfile
-
       - run: cargo audit --deny warnings
 
   cargo-semver-checks:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - run: rustup --version
@@ -74,9 +75,9 @@ jobs:
             ~/.cargo/bin/cargo-semver-checks
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
-          key: ${{ runner.os }}-v2-cargo-semver-checks-0.44.0
+          key: ${{ runner.os }}-v2-cargo-semver-checks-0.46.0
 
-      - run: cargo install cargo-semver-checks --locked --vers "0.44.0"
+      - run: cargo install cargo-semver-checks --locked --vers "0.46.0"
 
       - uses: briansmith/actions-checkout@v4
         with:
@@ -88,7 +89,7 @@ jobs:
     # Don't run duplicate `push` jobs for the repo owner's PRs.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - run: rustup --version
@@ -99,9 +100,9 @@ jobs:
             ~/.cargo/bin/cargo-deny
             ~/.cargo/.crates.toml
             ~/.cargo/.crates2.json
-          key: ${{ runner.os }}-v2-cargo-deny-locked-0.16.4
+          key: ${{ runner.os }}-v2-cargo-deny-locked-0.19.9
 
-      - run: cargo install cargo-deny --locked --vers "0.16.4"
+      - run: cargo install cargo-deny --locked --vers "0.19.0"
 
       - uses: briansmith/actions-checkout@v4
         with:
@@ -114,7 +115,7 @@ jobs:
     # Don't run duplicate `push` jobs for the repo owner's PRs.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - run: rustup --version
@@ -141,10 +142,7 @@ jobs:
 
       - run: ./mk/install-build-tools.ps1
 
-      - run: rustup toolchain install --no-self-update --profile=minimal 1.66.0
-
-      - run: echo "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\Llvm\x64\bin" >> $GITHUB_PATH
-        shell: bash
+      - run: rustup toolchain install --no-self-update --profile=minimal 1.85.0 # MSRV
 
       - run: sh mk/package.sh
         shell: bash
@@ -183,7 +181,6 @@ jobs:
           - i686-unknown-linux-gnu
           - i686-unknown-linux-musl
           - riscv64gc-unknown-linux-gnu
-          - wasm32-wasi
           - wasm32-wasip1
           - wasm32-wasip2
           - x86_64-pc-windows-gnu
@@ -199,23 +196,10 @@ jobs:
         rust_channel:
           - stable
           # Keep in sync with Cargo.toml and similar `rust_channel` sections.
-          - 1.66.0 # MSRV
+          - 1.85.0 # MSRV
           # TODO: Move these to a daily/pre-release job.
           # - nightly
           # - beta
-
-        exclude:
-          # Not available anymore.
-          - target: wasm32-wasi
-            rust_channel: stable
-
-          # Not available.
-          - target: wasm32-wasip1
-            rust_channel: 1.66.0
-
-          # Not available.
-          - target: wasm32-wasip2
-            rust_channel: 1.66.0
 
         include:
           - target: aarch64-apple-darwin
@@ -248,28 +232,21 @@ jobs:
             cargo_options: --no-run -Z build-std
 
           - target: aarch64-linux-android
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
             # TODO: https://github.com/briansmith/ring/issues/486
             cargo_options: --no-run
 
           - target: aarch64-pc-windows-msvc
             host_os: windows-11-arm
 
-          - target: aarch64-pc-windows-msvc
-            host_os: windows-11-arm
-            rust_channel: 1.66.0
-            mode: --release
-            # XXX: https://github.com/briansmith/ring/issues/2536
-            cargo_test_options: -- --skip=test_rsakeypair_private_exponent
-
           - target: aarch64-unknown-linux-gnu
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: aarch64-unknown-linux-musl
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: arm-unknown-linux-gnueabi
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           # - target: arm64_32-apple-watchos
           #   host_os: macos-15
@@ -279,68 +256,50 @@ jobs:
           #   cargo_options: --no-run -Z build-std
 
           - target: armv7-linux-androideabi
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
             # TODO: https://github.com/briansmith/ring/issues/838
             cargo_options: --no-run
 
           - target: armv7-unknown-linux-musleabihf
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: i686-pc-windows-msvc
             host_os: windows-2025
 
           - target: i686-unknown-linux-gnu
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-musl
-            host_os: ubuntu-22.04
-
-          - target: mips-unknown-linux-gnu
-            mode: --release
-            rust_channel: 1.71.0 # No prebuilt toolchain for later versions.
-            host_os: ubuntu-22.04
-
-          - target: mips64el-unknown-linux-gnuabi64
-            mode: --release
-            rust_channel: 1.71.0 # No prebuilt toolchain for later versions.
-            host_os: ubuntu-22.04
-
-          - target: mipsel-unknown-linux-gnu
-            mode: --release
-            rust_channel: 1.71.0 # No prebuilt toolchain for later versions.
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: powerpc-unknown-linux-gnu
             mode: --release
             rust_channel: stable
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: powerpc64-unknown-linux-gnu
             mode: --release
             rust_channel: stable
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: powerpc64le-unknown-linux-gnu
             mode: --release
             rust_channel: stable
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: riscv64gc-unknown-linux-gnu
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: s390x-unknown-linux-gnu
             mode: --release
             rust_channel: stable
-            host_os: ubuntu-22.04
-
-          - target: wasm32-wasi
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: wasm32-wasip1
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: wasm32-wasip2
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: x86_64-pc-windows-gnu
             host_os: windows-2025
@@ -349,13 +308,13 @@ jobs:
             host_os: windows-2025
 
           - target: x86_64-apple-darwin
-            host_os: macos-13
+            host_os: macos-15
 
           - target: x86_64-unknown-linux-musl
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
     steps:
       - uses: briansmith/actions-checkout@v4
@@ -373,28 +332,26 @@ jobs:
 
       - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: |
-          mk/cargo.sh +${{ matrix.rust_channel }} test -vv --lib --tests --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
+          mk/cargo.sh +${{ matrix.rust_channel }} test --locked -vv --lib --tests --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
 
       - if: ${{ contains(matrix.host_os, 'windows') }}
         run: |
-          cargo +${{ matrix.rust_channel }} test -vv --lib --tests --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
+          cargo +${{ matrix.rust_channel }} test --locked -vv --lib --tests --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
 
       # Check that all the needed symbol renaming was done.
       # TODO: Do this check on Windows too.
 
-      - if: ${{ (matrix.target != 'aarch64-apple-ios' || matrix.rust_channel != '1.66.0') &&
-                !contains(matrix.host_os, 'windows') }}
+      - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: rustup toolchain install --component=llvm-tools-preview ${{ matrix.rust_channel }}
 
-      - if: ${{ (matrix.target != 'aarch64-apple-ios' || matrix.rust_channel != '1.66.0') &&
-                !contains(matrix.host_os, 'windows') }}
+      - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: mk/check-symbol-prefixes.sh +${{ matrix.rust_channel }} --target=${{ matrix.target }}
 
   test-bench:
     # Don't run duplicate `push` jobs for the repo owner's PRs.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: briansmith/actions-checkout@v4
@@ -406,7 +363,7 @@ jobs:
 
       - run: rustup --version
 
-      - run: cargo test -p ring-bench --all-features --all-targets
+      - run: cargo test --locked -p ring-bench --all-features --all-targets
 
   test-doc:
     # Don't run duplicate `push` jobs for the repo owner's PRs.
@@ -460,17 +417,17 @@ jobs:
           - stable
           - nightly
           # Keep in sync with Cargo.toml and similar `rust_channel` sections.
-          - 1.66.0 # MSRV
+          - 1.85.0 # MSRV
 
         include:
           - target: aarch64-unknown-linux-musl
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
           - target: i686-pc-windows-msvc
             host_os: windows-2025
 
           - target: x86_64-unknown-linux-gnu
-            host_os: ubuntu-22.04
+            host_os: ubuntu-24.04
 
     steps:
       - uses: briansmith/actions-checkout@v4
@@ -483,28 +440,21 @@ jobs:
       - if: ${{ contains(matrix.host_os, 'windows') && contains(matrix.target, '86') }}
         run: ./mk/install-build-tools.ps1
 
-      - if: ${{ matrix.target == 'aarch64-pc-windows-msvc' && !contains(matrix.host_os, 'arm') }}
-        run: |
-          echo "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\VC\Tools\Llvm\x64\bin" >> $GITHUB_PATH
-        shell: bash
-
       - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: |
-          mk/cargo.sh +${{ matrix.rust_channel }} test --lib --tests -vv --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
+          mk/cargo.sh +${{ matrix.rust_channel }} test --locked --lib --tests -vv --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
 
       - if: ${{ contains(matrix.host_os, 'windows') }}
         run: |
-          cargo +${{ matrix.rust_channel }} test --lib --tests -vv --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
+          cargo +${{ matrix.rust_channel }} test --locked --lib --tests -vv --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
 
       # Check that all the needed symbol renaming was done.
       # TODO: Do this check on Windows too.
 
-      - if: ${{ (matrix.target != 'aarch64-apple-ios' || matrix.rust_channel != '1.66.0') &&
-          !contains(matrix.host_os, 'windows') }}
+      - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: rustup toolchain install --component=llvm-tools-preview ${{ matrix.rust_channel }}
 
-      - if: ${{ (matrix.target != 'aarch64-apple-ios' || matrix.rust_channel != '1.66.0') &&
-          !contains(matrix.host_os, 'windows') }}
+      - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: mk/check-symbol-prefixes.sh +${{ matrix.rust_channel }} --target=${{ matrix.target }}
 
   # The wasm32-unknown-unknown targets have a different set of feature sets and
@@ -525,7 +475,7 @@ jobs:
           - --no-default-features --features=wasm32_unknown_unknown_js
 
         host_os:
-          - ubuntu-22.04
+          - ubuntu-24.04
         mode:
           - # debug
           - --release
@@ -553,10 +503,8 @@ jobs:
       - if: ${{ contains(matrix.host_os, 'windows') && contains(matrix.target, '86') }}
         run: ./mk/install-build-tools.ps1
 
-      - run: cargo +${{ matrix.rust_channel }} generate-lockfile
-
       - run: |
-          ${{ matrix.webdriver }} mk/cargo.sh +${{ matrix.rust_channel }} test -vv --target=${{ matrix.target }} ${{ matrix.features }} ${{ matrix.mode }}
+          ${{ matrix.webdriver }} mk/cargo.sh +${{ matrix.rust_channel }} test --locked -vv --target=${{ matrix.target }} ${{ matrix.features }} ${{ matrix.mode }}
 
       # Check that all the needed symbol renaming was done.
       # TODO: Do this check on Windows too.
@@ -601,9 +549,9 @@ jobs:
         mode:
           - # debug
 
-        # Coverage collection is Nightly-only
+        # Coverage collection is Nightly-only.
         rust_channel:
-          - nightly-2025-07-15
+          - nightly-2026-02-16
 
         # TODO: targets
         include:
@@ -624,7 +572,7 @@ jobs:
           - features: --features=unstable-testing-arm-no-hw,std
             target: aarch64-unknown-linux-gnu
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: arm-unknown-linux-gnueabi
@@ -636,7 +584,7 @@ jobs:
           - features: --features=unstable-testing-arm-no-neon,std
             target: armv7-unknown-linux-gnueabihf
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           # TODO: Use the -musl target after
@@ -646,7 +594,7 @@ jobs:
             cpu_model: # default
             features: --features=std
             mode: # debug
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: powerpc-unknown-linux-gnu
@@ -662,34 +610,34 @@ jobs:
             host_os: ubuntu-24.04
 
           - target: x86_64-apple-darwin
-            host_os: macos-13
+            host_os: macos-15
 
           - target: i686-unknown-linux-gnu
             cpu_model: coreduo-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: phenom-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-gnu
             cpu_model: Conroe-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: Opteron_G4-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           # Excavator is pre-Zen but with AVX2.
@@ -697,7 +645,7 @@ jobs:
             cpu_model: Opteron_G5-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           # Excavator is pre-Zen but with AVX2.
@@ -705,84 +653,84 @@ jobs:
             cpu_model: EPYC-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: Conroe-v1
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-gnu
             cpu_model: Denverton-v2
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: Denverton-v2
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-gnu
             cpu_model: Haswell
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: Haswell
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-gnu
             cpu_model: Nehalem
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: Nehalem
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-gnu
             cpu_model: SandyBridge
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: SandyBridge
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: i686-unknown-linux-gnu
             cpu_model: Westmere
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-gnu
             cpu_model: Westmere
             features: --features=std
             mode: --release
-            rust_channel: nightly
+            rust_channel: nightly-2026-02-16
             host_os: ubuntu-24.04
 
           - target: x86_64-unknown-linux-musl
@@ -801,7 +749,7 @@ jobs:
 
       - if: ${{ !contains(matrix.host_os, 'windows') }}
         run: |
-          RING_CPU_MODEL=${{ matrix.cpu_model }} RING_COVERAGE=1 mk/cargo.sh +${{ matrix.rust_channel }} test --lib --tests -vv --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
+          RING_CPU_MODEL=${{ matrix.cpu_model }} RING_COVERAGE=1 mk/cargo.sh +${{ matrix.rust_channel }} test --locked --lib --tests -vv --target=${{ matrix.target }} ${{ matrix.cargo_options }} ${{ matrix.features }} ${{ matrix.mode }} ${{ matrix.cargo_test_options }}
 
       - uses: briansmith/codecov-codecov-action@v5
         with:

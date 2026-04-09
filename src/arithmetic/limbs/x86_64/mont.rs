@@ -17,12 +17,12 @@
 #[allow(unused_imports)]
 use crate::polyfill::prelude::*;
 
-use crate::polyfill::{slice::Uninit, SmallerChunks, StartMutPtr};
+use crate::polyfill::{self, SmallerChunks, StartMutPtr, slice::Uninit};
 
 use super::super::super::{
-    limbs512::storage::{check_common, check_common_with_n, table_parts, table_parts_uninit},
-    n0::N0,
     LimbSliceError, MAX_LIMBS,
+    limbs512::storage::{check_common, check_common_with_n},
+    n0::N0,
 };
 use crate::{
     c,
@@ -32,7 +32,7 @@ use crate::{
     polyfill::slice::AliasingSlices,
     window5::Window5,
 };
-use core::{mem::MaybeUninit, num::NonZeroUsize};
+use core::{mem::MaybeUninit, num::NonZero};
 
 const _512_IS_LIMB_BITS_TIMES_8: () = assert!(8 * Limb::BITS == 512);
 
@@ -86,17 +86,17 @@ pub(in super::super::super) fn sqr_mont5<'o>(
         // `r` and/or 'a' may alias.
         // XXX: BoringSSL declares this to return `int`.
         // `num` must be a non-zero multiple of 8.
-        fn bn_sqr8x_mont(
+        unsafe fn bn_sqr8x_mont(
             rp: *mut Limb,
             ap: *const Limb,
             mulx_adx_capable: Limb,
             np: *const Limb,
             n0: &N0,
-            num: c::NonZero_size_t);
+            num: NonZero<c::size_t>);
     }
 
     let n = n.as_flattened();
-    let num_limbs = NonZeroUsize::new(n.len()).ok_or_else(|| LimbSliceError::too_short(n.len()))?;
+    let num_limbs = NonZero::new(n.len()).ok_or_else(|| LimbSliceError::too_short(n.len()))?;
 
     // Avoid stack overflow from the alloca inside.
     if num_limbs.get() > MAX_LIMBS {
@@ -128,13 +128,13 @@ pub(in super::super::super) fn gather5(
     prefixed_extern! {
         // Upstream uses `num: c::size_t` too, and `power: c::size_t`; see
         // `_MAX_LIMBS_ADDRESSES_MEMORY_SAFETY_ISSUES`.
-        fn bn_gather5(
+        unsafe fn bn_gather5(
             out: *mut Limb,
-            num: c::NonZero_size_t,
+            num: NonZero<c::size_t>,
             table: *const Limb,
             power: Window5);
     }
-    let num_limbs = check_common(r, table_parts(table))?;
+    let num_limbs = check_common(r, table)?;
     let table = table.as_flattened();
     unsafe { bn_gather5(r.as_mut_ptr(), num_limbs, table.as_ptr(), power) };
     Ok(())
@@ -159,28 +159,28 @@ pub(in super::super::super) unsafe fn mul_mont_gather5_amm(
     prefixed_extern! {
         // Upstream has `num: c_int` and `power: c_int`; see
         // `_MAX_LIMBS_ADDRESSES_MEMORY_SAFETY_ISSUES`.
-        fn bn_mul4x_mont_gather5(
+        unsafe fn bn_mul4x_mont_gather5(
             rp: *mut Limb,
             ap: *const Limb,
             table: *const Limb,
             np: *const Limb,
             n0: &N0,
-            num: c::NonZero_size_t,
+            num: NonZero<c::size_t>,
             power: Window5,
         );
         // Upstream has `num: c_int` and `power: c_int`; see
         // `_MAX_LIMBS_ADDRESSES_MEMORY_SAFETY_ISSUES`.
-        fn bn_mulx4x_mont_gather5(
+        unsafe fn bn_mulx4x_mont_gather5(
             rp: *mut Limb,
             ap: *const Limb,
             table: *const Limb,
             np: *const Limb,
             n0: &N0,
-            num: c::NonZero_size_t,
+            num: NonZero<c::size_t>,
             power: Window5,
         );
     }
-    let num_limbs = check_common_with_n(r, table_parts_uninit(table), n)?;
+    let num_limbs = check_common_with_n(r, polyfill::ptr::cast_init_slice_of_array(table), n)?;
     if a.len() != num_limbs.get() {
         Err(LenMismatchError::new(a.len()))?;
     }
@@ -212,28 +212,28 @@ pub(in super::super::super) fn power5_amm(
     prefixed_extern! {
         // Upstream has `num: c_int` and `power: c_int`; see
         // `_MAX_LIMBS_ADDRESSES_MEMORY_SAFETY_ISSUES`.
-        fn bn_power5_nohw(
+        unsafe fn bn_power5_nohw(
             rp: *mut Limb,
             ap: *const Limb,
             table: *const Limb,
             np: *const Limb,
             n0: &N0,
-            num: c::NonZero_size_t,
+            num: NonZero<c::size_t>,
             power: Window5,
         );
         // Upstream has `num: c_int` and `power: c_int`; see
         // `_MAX_LIMBS_ADDRESSES_MEMORY_SAFETY_ISSUES`.
-        fn bn_powerx5(
+        unsafe fn bn_powerx5(
             rp: *mut Limb,
             ap: *const Limb,
             table: *const Limb,
             np: *const Limb,
             n0: &N0,
-            num: c::NonZero_size_t,
+            num: NonZero<c::size_t>,
             power: Window5,
         );
     }
-    let num_limbs = check_common_with_n(in_out, table_parts(table), n)?;
+    let num_limbs = check_common_with_n(in_out, table, n)?;
     let r = in_out.as_mut_ptr();
     let a = in_out.as_ptr();
     let table = table.as_flattened();

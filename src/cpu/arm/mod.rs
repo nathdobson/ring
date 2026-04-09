@@ -49,10 +49,10 @@ pub(super) mod featureflags {
     pub(in super::super) use super::detect::FORCE_DYNAMIC_DETECTION;
     use super::*;
     use crate::{cpu, polyfill::once_cell::race};
-    use core::num::NonZeroU32;
+    use core::num::NonZero;
 
     pub(in super::super) fn get_or_init() -> cpu::Features {
-        fn init() -> NonZeroU32 {
+        fn init() -> NonZero<u32> {
             let detected = detect::detect_features();
             let filtered = (if cfg!(feature = "unstable-testing-arm-no-hw") {
                 !Neon::mask()
@@ -73,7 +73,7 @@ pub(super) mod featureflags {
                 // `neon_available` is declared as `alignas(4) uint32_t` in the C code.
                 // AtomicU32 is `#[repr(C, align(4))]`.
                 prefixed_extern! {
-                    static neon_available: AtomicU32;
+                    unsafe static neon_available: AtomicU32;
                 }
                 // SAFETY: The C code only reads `neon_available`, and its
                 // reads are synchronized through the `OnceNonZeroU32`
@@ -88,7 +88,7 @@ pub(super) mod featureflags {
 
         // SAFETY: This is the only caller. Any concurrent reading doesn't
         // affect the safety of the writing.
-        let _: NonZeroU32 = FEATURES.get_or_init(init);
+        let _: NonZero<u32> = FEATURES.get_or_init(init);
 
         // SAFETY: We initialized the CPU features as required.
         unsafe { cpu::Features::new_after_feature_flags_written_and_synced_unchecked() }
@@ -106,6 +106,10 @@ pub(super) mod featureflags {
     // We have a separate flag for NEON, so we need Acquire/Release ordering.
     static FEATURES: race::OnceNonZeroU32<race::AcquireRelease> = race::OnceNonZeroU32::new();
 
-    // TODO(MSRV): 32-bit ARM doesn't support any static feature detection yet.
-    pub(in super::super) const STATIC_DETECTED: u32 = 0;
+    // XXX: 32-bit ARM doesn't support any static feature detection yet, except on nightly.
+    // `target_os = "vita"` always has NEON, but it doesn't have a stable toolchain.
+    #[rustfmt::skip]
+    pub(in super::super) const STATIC_DETECTED: u32 = 0
+        | (if cfg!(target_feature = "neon") { Neon::mask() } else { 0 })
+        ;
 }

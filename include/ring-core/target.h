@@ -57,7 +57,10 @@
 #define OPENSSL_APPLE
 #endif
 
-#if defined(_WIN32)
+// Defining OPENSSL_WINDOWS for Cygwin probably wouldn't work upstream but it
+// should work fine for *ring* as all the cases where we distinguish Windows
+// from non-Windows in C code are to deal with ABI & toolchain differences.
+#if defined(_WIN32) || defined(__CYGWIN__)
 #define OPENSSL_WINDOWS
 #endif
 
@@ -92,6 +95,10 @@
 
 #if !defined(OPENSSL_X86_64) && !defined(OPENSSL_AARCH64)
 #define OPENSSL_SMALL
+#endif
+
+#if defined(OPENSSL_AARCH64) && defined(OPENSSL_WINDOWS) && !defined(__clang__)
+#error "Only clang-cl and clang are supported for aarch64-*-windows-*"
 #endif
 
 #endif  // OPENSSL_HEADER_TARGET_H

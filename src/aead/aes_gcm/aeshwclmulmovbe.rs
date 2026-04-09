@@ -19,8 +19,9 @@ use crate::polyfill::prelude::*;
 
 use super::{
     super::overlapping::IndexError,
+    Aad, BLOCK_LEN, Overlapping, Tag,
     aes::{self, Counter, EncryptCtr32, OverlappingPartialBlock},
-    gcm, open_whole_partial_tail, Aad, Overlapping, Tag, BLOCK_LEN,
+    gcm, open_whole_partial_tail,
 };
 use crate::{c, error::InputTooLongError};
 
@@ -41,7 +42,7 @@ pub(super) fn seal(
         // The upstream version has a different calling convention where it
         // accepts any `len` and returns the number of bytes processed
         // according to the above.
-        fn aesni_gcm_encrypt(
+        unsafe fn aesni_gcm_encrypt(
             input: *const u8,
             output: *mut u8,
             len: c::size_t,
@@ -106,7 +107,7 @@ pub(super) fn open(
         // The upstream version has a different calling convention where it
         // accepts any `len` and returns the number of bytes processed
         // according to the above.
-        fn aesni_gcm_decrypt(
+        unsafe fn aesni_gcm_decrypt(
             input: *const u8,
             output: *mut u8,
             len: c::size_t,

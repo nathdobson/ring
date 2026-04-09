@@ -19,7 +19,7 @@ use super::{
     start_ptr::{StartMutPtr, StartPtr},
     uninit_slice_cursor::Cursor,
 };
-use crate::{error::LenMismatchError, polyfill};
+use crate::error::LenMismatchError;
 use core::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
@@ -148,7 +148,7 @@ impl<'target, E: Copy> Uninit<'target, E> {
         }
         // Verify the returned slice is actually `self` overwritten, but also
         // allow any empty slice for usability.
-        if !polyfill::ptr::addr_eq(ptr, written.as_ptr()) && len != 0 {
+        if !ptr::addr_eq(ptr, written.as_ptr()) && len != 0 {
             // Abuse `LenMismatchError` for convenience; this is never going to
             // happen anyway.
             return Err(LenMismatchError::new(ptr.addr()));
@@ -158,7 +158,7 @@ impl<'target, E: Copy> Uninit<'target, E> {
 
     pub unsafe fn assume_init(self) -> &'target mut [E] {
         let r: &'target mut [MaybeUninit<E>] = self.target;
-        let r: *mut [MaybeUninit<E>] = polyfill::ptr::from_mut(r);
+        let r: *mut [MaybeUninit<E>] = ptr::from_mut(r);
         let r: *mut [E] = r as *mut [E];
         let r: &'target mut [E] = unsafe { &mut *r };
         r
@@ -218,7 +218,7 @@ impl<E> StartMutPtr for &mut AliasedUninit<'_, E> {
 impl<'target, E> From<Uninit<'target, E>> for AliasedUninit<'target, E> {
     fn from(uninit: Uninit<'target, E>) -> Self {
         Self {
-            target: polyfill::ptr::from_mut(uninit.target),
+            target: ptr::from_mut(uninit.target),
             _a: PhantomData,
         }
     }

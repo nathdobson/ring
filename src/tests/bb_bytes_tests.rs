@@ -15,70 +15,68 @@
 //! Building blocks.
 
 use crate::{
-    bb::{xor_assign_at_start_bytes, BoolMask},
-    error, rand,
+    bb::{BoolMask, xor_assign_at_start_bytes},
+    rand,
 };
 
 #[test]
-fn constant_time_conditional_memcpy() -> Result<(), error::Unspecified> {
-    let rng = rand::SystemRandom::new();
-    for _ in 0..100 {
-        let mut out = rand::generate::<[u8; 256]>(&rng)?.expose();
-        let input = rand::generate::<[u8; 256]>(&rng)?.expose();
-
-        // Mask to 16 bits to make zero more likely than it would otherwise be.
-        let b = (rand::generate::<[u8; 1]>(&rng)?.expose()[0] & 0x0f) == 0;
-
-        let ref_in = input;
-        let ref_out = if b { input } else { out };
-
-        prefixed_extern! {
-            fn bssl_constant_time_test_conditional_memcpy(dst: &mut [u8; 256], src: &[u8; 256], b: BoolMask);
-        }
-        unsafe {
-            bssl_constant_time_test_conditional_memcpy(
-                &mut out,
-                &input,
-                if b { BoolMask::TRUE } else { BoolMask::FALSE },
-            )
-        }
-        assert_eq!(ref_in, input);
-        assert_eq!(ref_out, out);
-    }
-
-    Ok(())
+fn constant_time_conditional_memcpy() {
+    const LEN: usize = 4 * size_of::<u64>();
+    test_constant_time_conditional_mem_x::<LEN>(
+        |b, out, input| {
+            prefixed_extern! {
+                unsafe fn bssl_constant_time_test_conditional_memcpy(dst: &mut [u8; LEN], src: &[u8; LEN], b: BoolMask);
+            }
+            unsafe { bssl_constant_time_test_conditional_memcpy(out, input, b) }
+        },
+        |b, out, input| {
+            if b {
+                *out = *input;
+            }
+        },
+    )
 }
 
 #[test]
-fn constant_time_conditional_memxor() -> Result<(), error::Unspecified> {
+fn constant_time_conditional_memxor() {
+    const LEN: usize = 3 * 32;
+    test_constant_time_conditional_mem_x::<LEN>(
+        |b, out, input| {
+            prefixed_extern! {
+                unsafe fn bssl_constant_time_test_conditional_memxor(dst: &mut [u8; LEN], src: &[u8; LEN], b: BoolMask);
+            }
+            unsafe {
+                bssl_constant_time_test_conditional_memxor(out, input, b);
+            }
+        },
+        |b, out, input| {
+            if b {
+                xor_assign_at_start_bytes(out, input)
+            }
+        },
+    )
+}
+
+// `f`: The implementation being tested.
+// `ref_f`: The reference implementation.
+fn test_constant_time_conditional_mem_x<const LEN: usize>(
+    f: impl Fn(BoolMask, &mut [u8; LEN], &[u8; LEN]),
+    ref_f: impl Fn(bool, &mut [u8; LEN], &[u8; LEN]),
+) {
     let rng = rand::SystemRandom::new();
-    for _ in 0..256 {
-        let mut out = rand::generate::<[u8; 256]>(&rng)?.expose();
-        let input = rand::generate::<[u8; 256]>(&rng)?.expose();
+    for b in [BoolMask::false_(), BoolMask::true_()] {
+        for _ in 0..256 {
+            let mut out = rand::generate::<[u8; LEN]>(&rng).unwrap().expose();
+            let input = rand::generate::<[u8; LEN]>(&rng).unwrap().expose();
 
-        // Mask to 16 bits to make zero more likely than it would otherwise be.
-        let b = (rand::generate::<[u8; 1]>(&rng)?.expose()[0] & 0x0f) != 0;
+            let mut ref_out: [u8; LEN] = out;
+            let ref_in: [u8; LEN] = input;
 
-        let ref_in = input;
-        let mut ref_out = out;
-        if b {
-            xor_assign_at_start_bytes(&mut ref_out, &ref_in)
-        };
+            f(b, &mut out, &input);
+            ref_f(b.leak(), &mut ref_out, &ref_in);
 
-        prefixed_extern! {
-            fn bssl_constant_time_test_conditional_memxor(dst: &mut [u8; 256], src: &[u8; 256], b: BoolMask);
+            assert_eq!(ref_in, input);
+            assert_eq!(&ref_out, &out);
         }
-        unsafe {
-            bssl_constant_time_test_conditional_memxor(
-                &mut out,
-                &input,
-                if b { BoolMask::TRUE } else { BoolMask::FALSE },
-            );
-        }
-
-        assert_eq!(ref_in, input);
-        assert_eq!(ref_out, out);
     }
-
-    Ok(())
 }
