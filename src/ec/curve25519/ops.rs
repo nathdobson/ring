@@ -15,10 +15,10 @@
 //! Elliptic curve operations on the birationally equivalent curves Curve25519
 //! and Edwards25519.
 
-pub use super::scalar::{MaskedScalar, SCALAR_LEN, Scalar};
+pub use super::scalar::{MaskedScalar, Scalar, SCALAR_LEN};
 use crate::{
     cpu,
-    limb::{LIMB_BITS, Limb},
+    limb::{Limb, LIMB_BITS},
 };
 use core::{marker::PhantomData, mem::MaybeUninit};
 

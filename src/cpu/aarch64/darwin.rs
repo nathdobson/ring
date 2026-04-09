@@ -12,7 +12,7 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use super::{Aes, CAPS_STATIC, Neon, PMull, Sha256};
+use super::{Aes, Neon, PMull, Sha256, CAPS_STATIC};
 #[cfg(all(target_pointer_width = "64", not(target_os = "watchos")))]
 use {super::Sha512, core::ffi::CStr};
 
@@ -99,7 +99,6 @@ pub fn detect_features() -> u32 {
 #[cfg(test)]
 mod tests {
     use super::super::Sha512;
-    use super::*;
     use crate::cpu::{self, GetFeature};
 
     #[test]

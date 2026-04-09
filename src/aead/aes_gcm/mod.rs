@@ -16,10 +16,10 @@
 use crate::polyfill::prelude::*;
 
 use super::{
-    Aad, AuthError, ForgedPlaintext, Nonce, Overlapping, Tag,
-    aes::{self, BLOCK_LEN, Counter, OverlappingPartialBlock, ZERO_BLOCK},
-    gcm,
-    overlapping::IndexError,
+    aes::{self, Counter, OverlappingPartialBlock, BLOCK_LEN, ZERO_BLOCK}, gcm, overlapping::IndexError, Aad, AuthError, ForgedPlaintext,
+    Nonce,
+    Overlapping,
+    Tag,
 };
 use crate::{
     cpu,

@@ -25,9 +25,10 @@ macro_rules! test_file {
     };
 }
 
+#[cfg(feature = "testutils")]
 pub use crate::testutil::{
-    File, TestCase, compile_time_assert_clone, compile_time_assert_copy, compile_time_assert_eq,
-    compile_time_assert_send, compile_time_assert_sync, from_hex, run,
+    compile_time_assert_clone, compile_time_assert_copy, compile_time_assert_eq, compile_time_assert_send, compile_time_assert_sync,
+    from_hex, run, File, TestCase,
 };
 
 #[cfg(feature = "std")]
@@ -35,6 +36,7 @@ pub use crate::testutil::compile_time_assert_std_error_error;
 
 #[deprecated(note = "internal API that will be removed")]
 #[doc(hidden)]
+#[cfg(feature = "testutils")]
 pub mod rand {
     #[deprecated(note = "internal API that will be removed")]
     pub type FixedByteRandom = crate::testutil::rand::FixedByteRandom;

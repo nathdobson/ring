@@ -16,9 +16,9 @@
 use crate::polyfill::prelude::*;
 
 use super::{
-    Aad, AuthError, ForgedPlaintext, Nonce, Tag,
-    chacha::{self, Counter, Overlapping},
-    poly1305,
+    chacha::{self, Counter, Overlapping}, poly1305, Aad, AuthError, ForgedPlaintext,
+    Nonce,
+    Tag,
 };
 use crate::{
     cpu,

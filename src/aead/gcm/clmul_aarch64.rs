@@ -15,8 +15,8 @@
 #![cfg(all(target_arch = "aarch64", target_endian = "little"))]
 
 use super::{
-    UpdateBlock, Xi,
-    ffi::{self, BLOCK_LEN, KeyValue},
+    ffi::{self, KeyValue, BLOCK_LEN}, UpdateBlock,
+    Xi,
 };
 use crate::cpu;
 use core::mem::MaybeUninit;

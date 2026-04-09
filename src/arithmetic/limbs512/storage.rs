@@ -23,7 +23,7 @@ use crate::{
     polyfill::StartPtr,
 };
 use core::{
-    mem::{MaybeUninit, align_of, size_of},
+    mem::{align_of, size_of, MaybeUninit},
     num::NonZero,
 };
 // Some x86_64 assembly is written under the assumption that some of its

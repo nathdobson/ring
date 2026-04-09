@@ -92,6 +92,8 @@
 )]
 #![no_std]
 
+#![allow(dead_code)]
+
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
@@ -106,6 +108,7 @@ mod prefixed;
 
 #[doc(hidden)]
 #[macro_use]
+#[cfg(feature="testutils")]
 mod testutil;
 
 #[macro_use]

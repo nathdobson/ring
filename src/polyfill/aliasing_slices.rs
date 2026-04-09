@@ -14,8 +14,8 @@
 
 pub(crate) use crate::error::LenMismatchError;
 use crate::polyfill::{
-    StartPtr,
     slice::{AliasedUninit, Uninit},
+    StartPtr,
 };
 use core::array;
 use core::num::NonZero;

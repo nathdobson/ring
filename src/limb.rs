@@ -22,11 +22,11 @@ use crate::{
     bb, c,
     error::{self, LenMismatchError},
     polyfill::{
+        slice::{AliasingSlices, Cursor, InOut}, sliceutil,
+        usize_from_u32,
         ArrayFlatMap, StartMutPtr,
-        slice::{AliasingSlices, Cursor, InOut},
-        sliceutil, usize_from_u32,
-    },
-    window5::Window5,
+    }
+    ,
 };
 use core::{iter, num::NonZero};
 

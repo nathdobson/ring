@@ -29,9 +29,9 @@ use crate::{
 };
 
 pub use self::{
-    algorithm::{AES_128_GCM, AES_256_GCM, Algorithm, CHACHA20_POLY1305},
+    algorithm::{Algorithm, AES_128_GCM, AES_256_GCM, CHACHA20_POLY1305},
     less_safe_key::LessSafeKey,
-    nonce::{NONCE_LEN, Nonce},
+    nonce::{Nonce, NONCE_LEN},
     opening_key::OpeningKey,
     sealing_key::SealingKey,
     unbound_key::UnboundKey,

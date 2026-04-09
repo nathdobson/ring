@@ -17,8 +17,8 @@
 use crate::polyfill::prelude::*;
 
 use super::{
-    super::overlapping::IndexError, BLOCK_LEN, Block, Counter, EncryptBlock, EncryptCtr32, Iv,
-    KeyBytes, Overlapping, ffi,
+    super::overlapping::IndexError, ffi, Block, Counter, EncryptBlock, EncryptCtr32, Iv,
+    KeyBytes, Overlapping, BLOCK_LEN,
 };
 use crate::{bb, polyfill::usize_from_u32};
 use core::{array, mem::size_of, num::NonZero};

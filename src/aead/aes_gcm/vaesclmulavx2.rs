@@ -17,7 +17,7 @@
 #[allow(unused_imports)]
 use crate::polyfill::prelude::*;
 
-use super::{BLOCK_LEN, Counter, Overlapping, aes, gcm};
+use super::{aes, gcm, Counter, Overlapping, BLOCK_LEN};
 use crate::c;
 use core::num::NonZero;
 

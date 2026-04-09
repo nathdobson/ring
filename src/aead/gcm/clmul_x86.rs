@@ -15,8 +15,8 @@
 #![cfg(target_arch = "x86")]
 
 use super::{
-    UpdateBlock, UpdateBlocks, Xi,
-    ffi::{self, BLOCK_LEN, KeyValue},
+    ffi::{self, KeyValue, BLOCK_LEN}, UpdateBlock, UpdateBlocks,
+    Xi,
 };
 use crate::{c, cpu};
 use core::{mem::MaybeUninit, num::NonZero, slice};

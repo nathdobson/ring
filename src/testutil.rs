@@ -118,13 +118,12 @@
 //! stack trace pointing to line 652 of the file `example.rs`.
 
 extern crate alloc;
-
-use alloc::{format, string::String, vec::Vec};
-
-use crate::{bits, digest, error};
-
 #[cfg(any(feature = "std", feature = "test_logging"))]
 extern crate std;
+
+use alloc::{string::String, vec::Vec};
+
+use crate::{bits, digest, error};
 
 /// `compile_time_assert_clone::<T>();` fails to compile if `T` doesn't
 /// implement `Clone`.
@@ -362,11 +361,9 @@ where
 
 /// Decode an string of hex digits into a sequence of bytes. The input must
 /// have an even number of digits.
-pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, String> {
+pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, u8> {
     if hex_str.len() % 2 != 0 {
-        return Err(String::from(
-            "Hex string does not have an even number of digits",
-        ));
+        return Err(0);
     }
 
     let mut result = Vec::with_capacity(hex_str.len() / 2);
@@ -378,7 +375,7 @@ pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, String> {
     Ok(result)
 }
 
-fn from_hex_digit(d: u8) -> Result<u8, String> {
+fn from_hex_digit(d: u8) -> Result<u8, u8> {
     use core::ops::RangeInclusive;
     const DECIMAL: (u8, RangeInclusive<u8>) = (0, b'0'..=b'9');
     const HEX_LOWER: (u8, RangeInclusive<u8>) = (10, b'a'..=b'f');
@@ -388,7 +385,7 @@ fn from_hex_digit(d: u8) -> Result<u8, String> {
             return Ok(d - range.start() + offset);
         }
     }
-    Err(format!("Invalid hex digit '{}'", d as char))
+    Err(d)
 }
 
 fn parse_test_case(

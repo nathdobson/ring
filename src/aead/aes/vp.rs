@@ -22,7 +22,7 @@
 #[allow(unused_imports)]
 use crate::polyfill::prelude::*;
 
-use super::{Block, Counter, EncryptBlock, EncryptCtr32, Iv, KeyBytes, Overlapping, ffi};
+use super::{ffi, Block, Counter, EncryptBlock, EncryptCtr32, Iv, KeyBytes, Overlapping};
 use crate::cpu;
 #[cfg(all(target_arch = "aarch64", target_endian = "little"))]
 use crate::polyfill::StartMutPtr;
@@ -159,7 +159,7 @@ impl EncryptCtr32 for Key {
 #[cfg(all(target_arch = "arm", target_endian = "little"))]
 impl EncryptCtr32 for Key {
     fn ctr32_encrypt_within(&self, in_out: Overlapping<'_>, ctr: &mut Counter) {
-        use super::{super::overlapping::IndexError, BLOCK_LEN, bs};
+        use super::{super::overlapping::IndexError, bs, BLOCK_LEN};
         prefixed_extern_ctr32_encrypt_blocks! { unsafe fn vpaes_ctr32_encrypt_blocks }
 
         let in_out = {
@@ -227,7 +227,7 @@ impl EncryptBlock for Key {
 #[cfg(target_arch = "x86")]
 impl EncryptCtr32 for Key {
     fn ctr32_encrypt_within(&self, mut in_out: Overlapping<'_>, ctr: &mut Counter) {
-        use super::{BLOCK_LEN, overlapping::IndexError};
+        use super::{overlapping::IndexError, BLOCK_LEN};
         use crate::polyfill::sliceutil;
 
         assert_eq!(in_out.len() % BLOCK_LEN, 0);

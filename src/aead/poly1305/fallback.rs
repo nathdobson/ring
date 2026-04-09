@@ -16,7 +16,7 @@
 #[allow(unused_imports)]
 use crate::polyfill::prelude::*;
 
-use super::{BLOCK_LEN, Key, TAG_LEN, Tag};
+use super::{Key, Tag, BLOCK_LEN, TAG_LEN};
 use crate::polyfill::sliceutil;
 use core::num::Wrapping;
 

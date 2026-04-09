@@ -16,10 +16,10 @@
 use crate::polyfill::prelude::*;
 
 use super::{
-    super::{MAX_LIMBS, montgomery::*},
-    IntoMont, Mont, Uninit,
-    boxed_limbs::BoxedLimbs,
-    unwrap_impossible_len_mismatch_error, unwrap_impossible_limb_slice_error,
+    super::{montgomery::*, MAX_LIMBS},
+    boxed_limbs::BoxedLimbs, unwrap_impossible_len_mismatch_error, unwrap_impossible_limb_slice_error,
+    IntoMont,
+    Mont, Uninit,
 };
 use crate::{
     bits::BitLength,
@@ -27,8 +27,8 @@ use crate::{
     error::{self, LenMismatchError},
     limb::{self, Limb},
     polyfill::{
-        StartMutPtr,
         slice::{AliasingSlices, InOut},
+        StartMutPtr,
     },
 };
 use core::{marker::PhantomData, num::NonZero};

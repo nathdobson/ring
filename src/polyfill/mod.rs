@@ -46,8 +46,7 @@ mod cold_error;
 mod aliasing_slices;
 mod array_flat_map;
 mod array_split_map;
-mod atomic;
-#[cfg(feature="alloc")]
+#[cfg(feature = "alloc")]
 mod boxed;
 pub mod dynarray;
 pub mod partial_buffer;
@@ -78,17 +77,9 @@ pub mod prelude {
     // these modules and always use it with fully-qualified syntax. This is
     // particularly important to do since code coverage testing is done on
     // using Rust Nightly.
-    pub(crate) use super::{
-        atomic::AtomicPolyfills,
-
-
-        ptr::{ConstPointerPolyfills, PointerPolyfills},
-        slice::{SliceOfArraysPolyfills, SlicePolyfills},
-    };
-    #[cfg(feature="alloc")]
-    pub(crate) use super::{
-        boxed::{BoxMaybeUninitSlicePolyfills, BoxSlicePolyfills},
-    };
+    #[cfg(feature = "alloc")]
+    pub(crate) use super::boxed::{BoxMaybeUninitSlicePolyfills, BoxSlicePolyfills};
+    pub(crate) use super::{ptr::PointerPolyfills, slice::SlicePolyfills};
 }
 
 mod notsend;

@@ -17,8 +17,8 @@
 #![allow(clippy::too_many_arguments)]
 
 use self::build::{
-    AsmTarget, Endian, PREGENERATED, Profile, Target, Tools, build_c_code,
-    generate_sources_and_preassemble, walk_non_root_sources,
+    build_c_code, generate_sources_and_preassemble, walk_non_root_sources, AsmTarget, Endian, Profile, Target,
+    Tools, PREGENERATED,
 };
 // Avoid `std::env` here; use `self::env` instead.
 use std::{

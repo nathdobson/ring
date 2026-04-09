@@ -15,9 +15,9 @@
 //! Verification of RSA signatures.
 
 use super::{
-    PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN, PublicKeyComponents, RsaParameters,
-    base::{PublicExponent, public_key},
-    parse_public_key,
+    base::{public_key, PublicExponent}, parse_public_key, PublicKeyComponents,
+    RsaParameters,
+    PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN,
 };
 use crate::{
     arithmetic::bigint,

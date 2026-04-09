@@ -13,17 +13,17 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use super::{
-    KeyPairComponents, N, PublicKey, PublicKeyComponents,
-    base::PublicExponent,
-    padding::{self, RsaEncoding},
-    public_key,
+    base::PublicExponent, padding::{self, RsaEncoding}, public_key, KeyPairComponents,
+    PublicKey,
+    PublicKeyComponents,
+    N,
 };
 
 /// RSA PKCS#1 1.5 signatures.
 use crate::{
     arithmetic::{
-        LimbSliceError, bigint,
-        montgomery::{R, RR, RRR},
+        bigint, montgomery::{R, RR, RRR},
+        LimbSliceError,
     },
     bits::BitLength,
     cpu, digest,
@@ -31,6 +31,7 @@ use crate::{
     io::der,
     pkcs8, rand, sealed, signature,
 };
+
 
 /// An RSA key pair, used for signing.
 pub struct KeyPair {

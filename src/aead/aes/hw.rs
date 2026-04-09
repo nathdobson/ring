@@ -18,9 +18,9 @@
     target_arch = "x86_64"
 ))]
 
-use super::{Block, EncryptBlock, Iv, KeyBytes, cpu};
+use super::{cpu, Block, EncryptBlock, Iv, KeyBytes};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use super::{Counter, EncryptCtr32, Overlapping, ffi::AES_KEY};
+use super::{ffi::AES_KEY, Counter, EncryptCtr32, Overlapping};
 #[cfg(all(target_arch = "aarch64", target_endian = "little"))]
 use {super::ffi, crate::bits::BitLength, core::ffi::c_int};
 

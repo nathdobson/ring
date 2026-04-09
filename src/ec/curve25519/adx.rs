@@ -12,10 +12,10 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use super::ops::{P3, Scalar};
+use super::ops::{Scalar, P3};
 use crate::cpu::{
-    self, GetFeature as _,
-    intel::{Adx, Bmi1, Bmi2},
+    self, intel::{Adx, Bmi1, Bmi2},
+    GetFeature as _,
 };
 use core::mem::MaybeUninit;
 

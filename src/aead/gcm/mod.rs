@@ -15,12 +15,12 @@
 #[allow(unused_imports)]
 use crate::polyfill::prelude::*;
 
-use self::ffi::{BLOCK_LEN, Block, ZERO_BLOCK};
-use super::{Aad, aes_gcm};
+use self::ffi::{Block, BLOCK_LEN, ZERO_BLOCK};
+use super::{aes_gcm, Aad};
 use crate::{
     bits::{BitLength, FromByteLen as _},
     error::InputTooLongError,
-    polyfill::{NotSend, sliceutil::overwrite_at_start},
+    polyfill::{sliceutil::overwrite_at_start, NotSend},
 };
 use cfg_if::cfg_if;
 

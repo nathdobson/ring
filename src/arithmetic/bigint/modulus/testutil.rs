@@ -1,5 +1,4 @@
 use super::super::super::montgomery::RR;
-use super::*;
 use crate::cpu;
 use crate::error::{self, KeyRejected};
 

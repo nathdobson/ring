@@ -12,7 +12,7 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use super::{N, base};
+use super::{base, N};
 use crate::{
     arithmetic::{bigint, montgomery::RR},
     cpu, error,

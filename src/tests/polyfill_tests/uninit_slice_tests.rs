@@ -14,7 +14,7 @@
 
 use crate::{
     error::LenMismatchError,
-    polyfill::{StartPtr, slice::Uninit},
+    polyfill::{slice::Uninit, StartPtr},
 };
 use core::{mem::MaybeUninit, ptr, slice};
 

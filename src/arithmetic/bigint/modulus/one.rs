@@ -16,8 +16,8 @@
 use crate::polyfill::prelude::*;
 
 use super::super::{
-    super::montgomery::{R, RR, limbs_square_mont},
-    Limb, Mont, unwrap_impossible_len_mismatch_error, unwrap_impossible_limb_slice_error,
+    super::montgomery::{limbs_square_mont, R, RR},
+    unwrap_impossible_len_mismatch_error, unwrap_impossible_limb_slice_error, Limb, Mont,
 };
 use crate::{
     error::LenMismatchError,

@@ -14,7 +14,7 @@
 
 #![cfg(all(target_arch = "arm", target_endian = "little"))]
 
-use super::{Counter, Overlapping, ffi::AES_KEY, vp};
+use super::{ffi::AES_KEY, vp, Counter, Overlapping};
 use core::mem::MaybeUninit;
 
 #[repr(transparent)]

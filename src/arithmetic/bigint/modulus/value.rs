@@ -18,7 +18,7 @@ use crate::{
     bits::{BitLength, FromByteLen as _},
     error::{self, InputTooLongError, LenMismatchError},
     limb,
-    limb::{LIMB_BITS, LIMB_BYTES, Limb},
+    limb::{Limb, LIMB_BITS, LIMB_BYTES},
     polyfill::usize_from_u32,
 };
 use core::marker::PhantomData;

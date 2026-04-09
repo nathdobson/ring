@@ -17,10 +17,10 @@ use crate::polyfill::prelude::*;
 
 use super::{
     super::{
-        super::montgomery::{RR, RRR, Unencoded, limbs_square_mont},
-        Elem, N0, One, OversizedUninit, PublicModulus, Uninit,
-        modulus::value::Value,
-        unwrap_impossible_limb_slice_error,
+        super::montgomery::{limbs_square_mont, Unencoded, RR, RRR},
+        modulus::value::Value, unwrap_impossible_limb_slice_error, Elem, One, OversizedUninit, PublicModulus,
+        Uninit,
+        N0,
     },
     ValidatedInput,
 };
@@ -29,7 +29,7 @@ use crate::{
     bits::BitLength,
     cpu,
     error::{self, LenMismatchError},
-    limb::{self, LIMB_BITS, Limb},
+    limb::{self, Limb, LIMB_BITS},
     polyfill::{self, LeadingZerosStripped},
 };
 use alloc::boxed::Box;

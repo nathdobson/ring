@@ -16,13 +16,9 @@
 use super::bigint::{Elem, Mont, Uninit};
 
 #[cfg(feature="alloc")]
-use super::{
-
-    montgomery::R,
-};
+use super::montgomery::R;
 #[cfg(feature="alloc")]
 use core::num::NonZeroU64;
-use core::num::NonZero;
 
 /// Calculates base**exponent (mod m).
 ///
