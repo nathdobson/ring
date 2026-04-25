@@ -64,7 +64,7 @@ pub(crate) fn elem_exp_consttime<N, P>(
 ) -> Result<Elem<P, Unencoded>, LimbSliceError> {
     let oneRRR = p.one();
     let p = &p.modulus(cpu);
-    let out = p.alloc_uninit();
+    let out = p.alloc_uninit().expect("TODO");
 
     // `elem_exp_consttime_inner` is parameterized on `STORAGE_LIMBS` only so
     // we can run tests with larger-than-supported-in-operation test vectors.
@@ -186,7 +186,7 @@ fn elem_exp_consttime_inner<N, M, const STORAGE_LIMBS: usize>(
     let mut acc = base_rinverse.transmute_encoding_less_safe::<R>();
 
     // TODO: We shouldn't need to write zeros here.
-    let tmp = m.alloc_uninit().write_zeros();
+    let tmp = m.alloc_uninit().expect("TODO").write_zeros();
     let tmp = Elem::<M, R>::assume_in_range_and_encoded_less_safe(tmp);
 
     let (acc, _) = limb::fold_5_bit_windows(

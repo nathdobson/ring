@@ -143,13 +143,13 @@ impl PublicKey<bigint::IntoMont<'_, N, RR>> {
         // RFC 8017 Section 5.2.2: RSAVP1.
 
         // Step 1.
-        let s = n.alloc_uninit().into_elem_from_be_bytes_padded(base, n)?;
+        let s = n.alloc_uninit().expect("TODO").into_elem_from_be_bytes_padded(base, n)?;
         if s.is_zero() {
             return Err(error::Unspecified);
         }
 
         // Step 2.
-        let m = n.alloc_uninit();
+        let m = n.alloc_uninit().expect("TODO");
         let m = self.exponentiate_elem(m, &s, cpu_features);
 
         // Step 3.
@@ -173,7 +173,7 @@ impl PublicKey<bigint::IntoMont<'_, N, RR>> {
         let n = &self.n.value();
         let nm = &n.modulus(cpu_features);
 
-        let tmp = nm.alloc_uninit();
+        let tmp = nm.alloc_uninit().expect("TODO");
         let base_r = base.clone_into(tmp).encode_mont(n, cpu_features);
 
         // During RSA public key operations the exponent is almost always either

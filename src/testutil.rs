@@ -163,6 +163,7 @@ pub struct TestCase {
 
 impl TestCase {
     /// Maps the string "true" to true and the string "false" to false.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_bool(&mut self, key: &str) -> bool {
         match self.consume_string(key).as_ref() {
             "true" => true,
@@ -176,6 +177,7 @@ impl TestCase {
     /// inputs. "SHA224" is mapped to None because *ring* intentionally does
     /// not support SHA224, but we need to consume test vectors from NIST that
     /// have SHA224 vectors in them.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_digest_alg(&mut self, key: &str) -> Option<&'static digest::Algorithm> {
         let name = self.consume_string(key);
         match name.as_ref() {
@@ -192,6 +194,7 @@ impl TestCase {
     /// Returns the value of an attribute that is encoded as a sequence of an
     /// even number of hex digits, or as a double-quoted UTF-8 string. The
     /// empty (zero-length) value is represented as "".
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_bytes(&mut self, key: &str) -> Vec<u8> {
         self.consume_optional_bytes(key)
             .unwrap_or_else(|| panic!("No attribute named \"{}\"", key))
@@ -199,6 +202,7 @@ impl TestCase {
 
     /// Like `consume_bytes()` except it returns `None` if the test case
     /// doesn't have the attribute.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_optional_bytes(&mut self, key: &str) -> Option<Vec<u8>> {
         let s = self.consume_optional_string(key)?;
         let result = if let [b'\"', s @ ..] = s.as_bytes() {
@@ -255,6 +259,7 @@ impl TestCase {
 
     /// Returns the value of an attribute that is an integer, in decimal
     /// notation.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_usize(&mut self, key: &str) -> usize {
         let s = self.consume_string(key);
         s.parse::<usize>().unwrap()
@@ -262,6 +267,7 @@ impl TestCase {
 
     /// Returns the value of an attribute that is an integer, in decimal
     /// notation, as a bit length.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_usize_bits(&mut self, key: &str) -> bits::BitLength {
         let s = self.consume_string(key);
         let bits = s.parse::<usize>().unwrap();
@@ -270,6 +276,7 @@ impl TestCase {
 
     /// Returns the raw value of an attribute, without any unquoting or
     /// other interpretation.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_string(&mut self, key: &str) -> String {
         self.consume_optional_string(key)
             .unwrap_or_else(|| panic!("No attribute named \"{}\"", key))
@@ -277,6 +284,7 @@ impl TestCase {
 
     /// Like `consume_string()` except it returns `None` if the test case
     /// doesn't have the attribute.
+    #[cfg(not(no_global_oom_handling))]
     pub fn consume_optional_string(&mut self, key: &str) -> Option<String> {
         for (name, value, consumed) in &mut self.attributes {
             if key == name {
@@ -314,6 +322,7 @@ pub struct File<'a> {
 /// Parses test cases out of the given file, calling `f` on each vector until
 /// `f` fails or until all the test vectors have been read. `f` can indicate
 /// failure either by returning `Err()` or by panicking.
+#[cfg(not(no_global_oom_handling))]
 pub fn run<F>(test_file: File, mut f: F)
 where
     F: FnMut(&str, &mut TestCase) -> Result<(), error::Unspecified>,
@@ -362,6 +371,7 @@ where
 
 /// Decode an string of hex digits into a sequence of bytes. The input must
 /// have an even number of digits.
+#[cfg(not(no_global_oom_handling))]
 pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, String> {
     if hex_str.len() % 2 != 0 {
         return Err(String::from(
@@ -378,6 +388,7 @@ pub fn from_hex(hex_str: &str) -> Result<Vec<u8>, String> {
     Ok(result)
 }
 
+#[cfg(not(no_global_oom_handling))]
 fn from_hex_digit(d: u8) -> Result<u8, String> {
     use core::ops::RangeInclusive;
     const DECIMAL: (u8, RangeInclusive<u8>) = (0, b'0'..=b'9');
@@ -391,6 +402,7 @@ fn from_hex_digit(d: u8) -> Result<u8, String> {
     Err(format!("Invalid hex digit '{}'", d as char))
 }
 
+#[cfg(not(no_global_oom_handling))]
 fn parse_test_case(
     current_section: &mut String,
     lines: &mut dyn Iterator<Item = &str>,

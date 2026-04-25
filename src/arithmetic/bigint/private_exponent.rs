@@ -29,7 +29,7 @@ impl PrivateExponent {
         p: &Mont<M>,
     ) -> Result<Self, error::Unspecified> {
         let mut dP = p
-            .alloc_uninit()
+            .alloc_uninit().expect("TODO")
             .into_elem_from_be_bytes_padded(input, p)?
             .leak_limbs_into_box_less_safe();
 

@@ -73,7 +73,7 @@ impl<'a> ValidatedInput<'a> {
         cpu_features: cpu::Features,
     ) -> PublicModulus<bigint::BoxedIntoMont<N, RR>> {
         PublicModulus {
-            value: self.input.build_boxed_into_mont(cpu_features),
+            value: self.input.build_boxed_into_mont(cpu_features).expect("TODO"),
         }
     }
 

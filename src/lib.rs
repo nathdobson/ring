@@ -1,4 +1,5 @@
 // Copyright 2015-2016 Brian Smith.
+
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -61,7 +62,10 @@
     clippy::type_complexity,
     non_camel_case_types,
     non_snake_case,
-    unsafe_code
+    unsafe_code,
+    unused_imports,
+    dead_code,
+    unused_features,
 )]
 #![deny(variant_size_differences)]
 #![forbid(
@@ -90,6 +94,7 @@
     )),
     allow(dead_code, unused_imports, unused_macros)
 )]
+#![feature(try_with_capacity, allocator_api)]
 #![no_std]
 
 #[cfg(feature = "alloc")]
@@ -164,8 +169,10 @@ mod sealed {
 }
 
 #[deprecated(note = "internal API that will be removed")]
+#[cfg(not(no_global_oom_handling))]
 pub mod deprecated_test;
 
 #[allow(deprecated)]
 #[deprecated(note = "internal API that will be removed")]
+#[cfg(not(no_global_oom_handling))]
 pub use deprecated_test as test;

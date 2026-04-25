@@ -402,6 +402,7 @@ fn open_whole_partial<A: aes::EncryptBlock, G: gcm::UpdateBlock>(
     ))
 }
 
+#[cfg(feature = "std")]
 #[inline]
 fn open_whole_partial_tail<A: aes::EncryptBlock, G: gcm::UpdateBlock>(
     aes_key: &A,

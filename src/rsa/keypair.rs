@@ -341,12 +341,12 @@ impl KeyPair {
         let q = q.build(cpu_features);
         let qim = &q.modulus.reborrow();
 
-        let q_mod_n_storage = nm.alloc_uninit();
+        let q_mod_n_storage = nm.alloc_uninit().expect("TODO");
         let q_mod_n = qim
             .to_elem(q_mod_n_storage, nm)
             .map_err(|error::Unspecified| KeyRejected::inconsistent_components())?;
 
-        let p_mod_n_storage = nm.alloc_uninit();
+        let p_mod_n_storage = nm.alloc_uninit().expect("TODO");
         let pq_mod_n = pim
             .to_elem(p_mod_n_storage, nm)
             .map_err(|error::Unspecified| KeyRejected::inconsistent_components())?
@@ -363,6 +363,7 @@ impl KeyPair {
         // that `d < n`.
         let _d = nm
             .alloc_uninit()
+            .expect("TODO")
             .into_elem_from_be_bytes_padded(d, nm)
             .map_err(|error::Unspecified| KeyRejected::inconsistent_components())?;
 
@@ -374,6 +375,7 @@ impl KeyPair {
 
         let qInv = pm
             .alloc_uninit()
+            .expect("TODO")
             .into_elem_from_be_bytes_padded(qInv, pm)
             .map_err(|error::Unspecified| KeyRejected::invalid_component())?
             .encode_mont(pim, cpu_features);
@@ -385,6 +387,7 @@ impl KeyPair {
         // Step 7.f.
         let q_mod_p = pm
             .alloc_uninit()
+            .expect("TODO")
             .elem_reduce_mont(&q_mod_n, pm, qim.len_bits())
             .encode_mont(pim, cpu_features);
         bigint::verify_inverses_consttime(&qInv, q_mod_p, pm)
@@ -467,7 +470,10 @@ impl ValidatedPrivatePrimeInput<'_> {
 
         // Steps 5.e and 5.f are omitted as explained above.
         PrivatePrime {
-            modulus: self.inner.build_boxed_into_mont(cpu_features),
+            modulus: self
+                .inner
+                .build_boxed_into_mont(cpu_features)
+                .expect("TODO"),
         }
     }
 }
@@ -611,7 +617,10 @@ impl KeyPair {
         let q = &self.q.modulus.reborrow();
 
         // Step 1. The value zero is also rejected.
-        let base = nm.alloc_uninit().into_elem_from_be_bytes_padded(base, nm)?;
+        let base = nm
+            .alloc_uninit()
+            .expect("TODO")
+            .into_elem_from_be_bytes_padded(base, nm)?;
 
         // Step 2
         let c = base;
@@ -625,7 +634,10 @@ impl KeyPair {
         // Step 2.b.iii.
         let h = {
             let pm = &p.modulus(cpu_features);
-            let m_2 = pm.alloc_uninit().elem_reduced_once(&m_2, pm, q.len_bits());
+            let m_2 = pm
+                .alloc_uninit()
+                .expect("TODO")
+                .elem_reduced_once(&m_2, pm, q.len_bits());
             m_1.sub(&m_2, pm).mul(&self.qInv, pm)
         };
 
@@ -635,14 +647,20 @@ impl KeyPair {
         // non-modular arithmetic.
         // The old `h` isn't used beyond this point, so its storage could be
         // reused.
-        let h = nm.alloc_uninit().elem_widen(&h, nm, p.len_bits())?;
-        let q_mod_n_storage = nm.alloc_uninit();
+        let h = nm
+            .alloc_uninit()
+            .expect("TODO")
+            .elem_widen(&h, nm, p.len_bits())?;
+        let q_mod_n_storage = nm.alloc_uninit().expect("TODO");
         let q_times_h = q
             .to_elem(q_mod_n_storage, nm)
             .map_err(|error::Unspecified| KeyRejected::inconsistent_components())?
             .encode_mont(n, cpu_features)
             .mul(&h, nm);
-        let m_2 = nm.alloc_uninit().elem_widen(&m_2, nm, q.len_bits())?;
+        let m_2 = nm
+            .alloc_uninit()
+            .expect("TODO")
+            .elem_widen(&m_2, nm, q.len_bits())?;
         let m = m_2.add(&q_times_h, nm);
 
         // Step 2.b.v isn't needed since there are only two primes.
@@ -656,7 +674,7 @@ impl KeyPair {
         // minimum value, since the relationship of `e` to `d`, `p`, and `q` is
         // not verified during `KeyPair` construction.
         {
-            let verify = nm.alloc_uninit();
+            let verify = nm.alloc_uninit().expect("TODO");
             let verify = self
                 .public
                 .inner()

@@ -34,6 +34,7 @@ use crate::{
 };
 use alloc::boxed::Box;
 use core::{marker::PhantomData, num::NonZero};
+use core::alloc::AllocError;
 
 /// The modulus *m* for a ring ℤ/mℤ, along with the precomputed values needed
 /// for efficient Montgomery multiplication modulo *m*. The value must be odd
@@ -55,6 +56,7 @@ pub struct BoxedIntoMont<M, E> {
     encoding: PhantomData<E>,
 }
 
+#[cfg(not(no_global_oom_handling))]
 impl<M: PublicModulus, E> Clone for BoxedIntoMont<M, E> {
     fn clone(&self) -> Self {
         Self {
@@ -80,9 +82,9 @@ impl<M, E> BoxedIntoMont<M, E> {
 }
 
 impl ValidatedInput<'_> {
-    pub(crate) fn build_boxed_into_mont<M>(&self, cpu: cpu::Features) -> BoxedIntoMont<M, RR> {
+    pub(crate) fn build_boxed_into_mont<M>(&self, cpu: cpu::Features) -> Result<BoxedIntoMont<M, RR>, AllocError> {
         let limbs = self.limbs();
-        let mut uninit = Box::new_uninit_slice(limbs.len() * 2);
+        let mut uninit = Box::try_new_uninit_slice(limbs.len() * 2)?;
         let borrowed = polyfill::slice::Uninit::from(uninit.as_mut());
         let mut cursor = borrowed.into_cursor();
         let IntoMont {
@@ -98,13 +100,13 @@ impl ValidatedInput<'_> {
             .check_at_end()
             .unwrap_or_else(|LenMismatchError { .. }| unreachable!());
         let storage = unsafe { uninit.assume_init() };
-        BoxedIntoMont {
+        Ok(BoxedIntoMont {
             storage,
             len_bits,
             n0,
             m,
             encoding,
-        }
+        })
     }
 
     pub(crate) fn build_into_mont<'o, M>(
@@ -261,7 +263,7 @@ impl<'a, M> Mont<'a, M> {
 }
 
 impl<M> Mont<'_, M> {
-    pub fn alloc_uninit(&self) -> Uninit<M> {
+    pub fn alloc_uninit(&self) -> Result<Uninit<M>, AllocError> {
         Uninit::new_less_safe(self.value.limbs().len())
     }
 

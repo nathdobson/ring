@@ -57,7 +57,7 @@ pub(super) struct Writer {
 impl Writer {
     pub(super) fn with_capacity(capacity: LengthMeasurement) -> Self {
         Self {
-            bytes: Vec::with_capacity(capacity.len),
+            bytes: Vec::try_with_capacity(capacity.len).expect("TODO"),
             requested_capacity: capacity.len,
         }
     }

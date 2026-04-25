@@ -21,6 +21,7 @@ use crate::{
     polyfill::{self, slice::WriteResult},
 };
 use alloc::boxed::Box;
+use core::alloc::AllocError;
 use core::{marker::PhantomData, mem::MaybeUninit, ptr};
 
 /// All `BoxedLimbs<M>` are stored in the same number of limbs.
@@ -31,6 +32,7 @@ pub(super) struct BoxedLimbs<M> {
     m: PhantomData<M>,
 }
 
+#[cfg(not(no_global_oom_handling))]
 // TODO: `derive(Clone)` after https://github.com/rust-lang/rust/issues/26925
 // is resolved or restrict `M: Clone`.
 impl<M> Clone for BoxedLimbs<M> {
@@ -61,6 +63,7 @@ impl<M> BoxedLimbs<M> {
     pub(super) fn len(&self) -> usize {
         self.limbs.len()
     }
+
 }
 
 pub struct Uninit<M> {
@@ -70,11 +73,11 @@ pub struct Uninit<M> {
 
 impl<M> Uninit<M> {
     // "Less safe" because this is what binds `len` to `M`.
-    pub fn new_less_safe(len: usize) -> Self {
-        Self {
-            limbs: Box::new_uninit_slice(len),
+    pub fn new_less_safe(len: usize) -> Result<Self, AllocError> {
+        Ok(Self {
+            limbs: Box::try_new_uninit_slice(len)?,
             m: PhantomData,
-        }
+        })
     }
 
     pub fn len(&self) -> usize {

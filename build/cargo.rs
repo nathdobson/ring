@@ -88,6 +88,8 @@ mod env {
 }
 
 fn main() {
+    println!("cargo::rustc-check-cfg=cfg(no_global_oom_handling)");
+
     // Avoid assuming the working directory is the same is the $CARGO_MANIFEST_DIR so that toolchains
     // which may assume other working directories can still build this code.
     let c_root_dir = PathBuf::from(
